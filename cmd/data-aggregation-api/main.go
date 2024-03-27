@@ -40,6 +40,20 @@ var (
 	builtBy = "unknown"
 )
 
+func dispatchSingleRequest(incoming chan struct{}) chan bool {
+	outgoing := make(chan bool)
+
+	go func() {
+		defer close(outgoing)
+		for range incoming {
+			log.Info().Msg("Received new build request.")
+			outgoing <- true
+		}
+	}()
+
+	return outgoing
+}
+
 func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -67,10 +81,11 @@ func run() error {
 	deviceRepo := device.NewSafeRepository()
 	reports := report.NewRepository()
 
-	// TODO: be able to close goroutine when the context is closed (graceful shutdown)
-	go job.StartBuildLoop(&deviceRepo, &reports)
+	newBuildRequest := make(chan struct{})
+	triggerNewBuild := dispatchSingleRequest(newBuildRequest)
 
-	if err := router.NewManager(&deviceRepo, &reports).ListenAndServe(ctx, config.Cfg.API.ListenAddress, config.Cfg.API.ListenPort); err != nil {
+	go job.StartBuildLoop(&deviceRepo, &reports, triggerNewBuild)
+	if err := router.NewManager(&deviceRepo, &reports, newBuildRequest).ListenAndServe(ctx, config.Cfg.API.ListenAddress, config.Cfg.API.ListenPort); err != nil {
 		return fmt.Errorf("webserver error: %w", err)
 	}
 

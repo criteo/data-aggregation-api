@@ -43,7 +43,7 @@ func logMessage(msg Message) {
 // It ends when the channel is closed.
 // This function is concurrent-safe.
 func (r *Report) Watch(messageChan <-chan Message) {
-	log.Info().Msg("Starting report dispatcher")
+	log.Info().Msg("starting report dispatcher")
 	r.StartTime = time.Now()
 	for msg := range messageChan {
 		logMessage(msg)
@@ -52,7 +52,7 @@ func (r *Report) Watch(messageChan <-chan Message) {
 		r.mutex.Unlock()
 	}
 	r.EndTime = time.Now()
-	log.Info().Msg("Stopping report dispatcher")
+	log.Info().Msg("stopping report dispatcher")
 }
 
 func (r *Report) ToJSON() ([]byte, error) {

@@ -27,18 +27,20 @@ type DevicesRepository interface {
 }
 
 type Manager struct {
-	devices DevicesRepository
-	reports *report.Repository
+	devices        DevicesRepository
+	reports        *report.Repository
+	restartRequest chan<- struct{}
 }
 
 // NewManager creates and initializes a new API manager.
-func NewManager(deviceRepo DevicesRepository, reports *report.Repository) *Manager {
-	return &Manager{devices: deviceRepo, reports: reports}
+func NewManager(deviceRepo DevicesRepository, reports *report.Repository, restartRequest chan<- struct{}) *Manager {
+	return &Manager{devices: deviceRepo, reports: reports, restartRequest: restartRequest}
 }
 
 // ListenAndServe starts to serve Web API requests.
 func (m *Manager) ListenAndServe(ctx context.Context, address string, port int) error {
 	defer func() {
+		close(m.restartRequest)
 		log.Warn().Msg("Shutdown.")
 	}()
 
@@ -57,6 +59,7 @@ func (m *Manager) ListenAndServe(ctx context.Context, address string, port int) 
 	router.GET("/v1/report/last", withAuth.Wrap(m.getLastReport))
 	router.GET("/v1/report/last/complete", withAuth.Wrap(m.getLastCompleteReport))
 	router.GET("/v1/report/last/successful", withAuth.Wrap(m.getLastSuccessfulReport))
+	router.POST("/v1/build/trigger", withAuth.Wrap(m.triggerBuild))
 
 	listenSocket := fmt.Sprint(address, ":", port)
 	log.Info().Msgf("Start webserver - listening on %s", listenSocket)

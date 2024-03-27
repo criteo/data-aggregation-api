@@ -130,3 +130,16 @@ func (m *Manager) getLastSuccessfulReport(w http.ResponseWriter, _ *http.Request
 	w.Header().Set(contentType, applicationJSON)
 	_, _ = w.Write(out)
 }
+
+// triggerBuild enables the user to trigger a new build.
+//
+// It only accepts one build request at a time.
+func (m *Manager) triggerBuild(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+	w.Header().Set(contentType, applicationJSON)
+	select {
+	case m.restartRequest <- struct{}{}:
+		_, _ = w.Write([]byte("{\"message\": \"new build request received\""))
+	default:
+		_, _ = w.Write([]byte("{\"message\": \"a build request is already pending\""))
+	}
+}
