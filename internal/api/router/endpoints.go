@@ -9,7 +9,6 @@ import (
 
 	"github.com/criteo/data-aggregation-api/internal/app"
 	"github.com/criteo/data-aggregation-api/internal/convertor/device"
-	"github.com/julienschmidt/httprouter"
 )
 
 const contentType = "Content-Type"
@@ -17,27 +16,27 @@ const applicationJSON = "application/json"
 const hostnameKey = "hostname"
 const wildcard = "*"
 
-func healthCheck(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func healthCheck(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 	_, _ = fmt.Fprintf(w, `{"status": "ok"}`)
 }
 
-func getVersion(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func getVersion(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 	_, _ = fmt.Fprintf(w, `{"version": "%s", "build_time": "%s", "build_user": "%s"}`, app.Info.Version, app.Info.BuildTime, app.Info.BuildUser)
 }
 
-func prometheusMetrics(h http.Handler) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func prometheusMetrics(h http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		h.ServeHTTP(w, r)
 	}
 }
 
 // getAFKEnabled endpoint returns all AFK enabled devices.
 // They are supposed to be managed by AFK, meaning the configuration should be applied periodically.
-func (m *Manager) getAFKEnabled(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
+func (m *Manager) getAFKEnabled(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
-	hostname := ps.ByName(hostnameKey)
+	hostname := r.PathValue(hostnameKey)
 
 	if hostname == wildcard {
 		out, err := m.devices.ListAFKEnabledDevicesJSON()
@@ -68,10 +67,10 @@ func (m *Manager) getAFKEnabled(w http.ResponseWriter, _ *http.Request, ps httpr
 }
 
 // getDeviceOpenConfig endpoint returns OpenConfig JSON for one or all devices.
-func (m *Manager) getDeviceOpenConfig(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
+func (m *Manager) getDeviceOpenConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
-	hostname := ps.ByName(hostnameKey)
-	if ps.ByName(hostnameKey) == wildcard {
+	hostname := r.PathValue(hostnameKey)
+	if hostname == wildcard {
 		cfg, err := m.devices.GetAllDevicesOpenConfigJSON()
 		if err != nil {
 			log.Error().Err(err).Send()
@@ -93,10 +92,10 @@ func (m *Manager) getDeviceOpenConfig(w http.ResponseWriter, _ *http.Request, ps
 }
 
 // getDeviceIETFConfig endpoint returns Ietf JSON for one or all devices.
-func (m *Manager) getDeviceIETFConfig(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
+func (m *Manager) getDeviceIETFConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
-	hostname := ps.ByName(hostnameKey)
-	if ps.ByName(hostnameKey) == wildcard {
+	hostname := r.PathValue(hostnameKey)
+	if hostname == wildcard {
 		cfg, err := m.devices.GetAllDevicesIETFConfigJSON()
 		if err != nil {
 			log.Error().Err(err).Send()
@@ -118,10 +117,10 @@ func (m *Manager) getDeviceIETFConfig(w http.ResponseWriter, _ *http.Request, ps
 }
 
 // getDeviceConfig endpoint returns Ietf & openconfig JSON for one or all devices.
-func (m *Manager) getDeviceConfig(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
+func (m *Manager) getDeviceConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
-	hostname := ps.ByName(hostnameKey)
-	if ps.ByName(hostnameKey) == wildcard {
+	hostname := r.PathValue(hostnameKey)
+	if hostname == wildcard {
 		cfg, err := m.devices.GetAllDevicesConfigJSON()
 		if err != nil {
 			log.Error().Err(err).Send()
@@ -143,7 +142,7 @@ func (m *Manager) getDeviceConfig(w http.ResponseWriter, _ *http.Request, ps htt
 }
 
 // getLastReport returns the last or current report.
-func (m *Manager) getLastReport(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func (m *Manager) getLastReport(w http.ResponseWriter, _ *http.Request) {
 	out, err := m.reports.GetLastJSON()
 	if err != nil {
 		log.Error().Err(err).Send()
@@ -156,7 +155,7 @@ func (m *Manager) getLastReport(w http.ResponseWriter, _ *http.Request, _ httpro
 }
 
 // getLastCompleteReport returns the previous build report.
-func (m *Manager) getLastCompleteReport(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func (m *Manager) getLastCompleteReport(w http.ResponseWriter, _ *http.Request) {
 	out, err := m.reports.GetLastCompleteJSON()
 	if err != nil {
 		log.Error().Err(err).Send()
@@ -169,7 +168,7 @@ func (m *Manager) getLastCompleteReport(w http.ResponseWriter, _ *http.Request, 
 }
 
 // getLastSuccessfulReport returns the previous successful build report.
-func (m *Manager) getLastSuccessfulReport(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func (m *Manager) getLastSuccessfulReport(w http.ResponseWriter, _ *http.Request) {
 	out, err := m.reports.GetLastSuccessfulJSON()
 	if err != nil {
 		log.Error().Err(err).Send()
@@ -184,7 +183,7 @@ func (m *Manager) getLastSuccessfulReport(w http.ResponseWriter, _ *http.Request
 // triggerBuild enables the user to trigger a new build.
 //
 // It only accepts one build request at a time.
-func (m *Manager) triggerBuild(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func (m *Manager) triggerBuild(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 	select {
 	case m.newBuildRequest <- struct{}{}:

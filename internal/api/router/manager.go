@@ -14,7 +14,6 @@ import (
 	"github.com/criteo/data-aggregation-api/internal/config"
 	"github.com/criteo/data-aggregation-api/internal/convertor/device"
 	"github.com/criteo/data-aggregation-api/internal/report"
-	"github.com/julienschmidt/httprouter"
 )
 
 const shutdownTimeout = 5 * time.Second
@@ -54,34 +53,34 @@ func (m *Manager) ListenAndServe(ctx context.Context, address string, port int, 
 		return err
 	}
 
-	router := httprouter.New()
+	mux := http.NewServeMux()
 
-	router.GET("/metrics", prometheusMetrics(promhttp.Handler()))
-	router.GET("/api/version", getVersion)
-	router.GET("/api/health", healthCheck)
-	router.GET("/v1/devices/:hostname/afk_enabled", withAuth.Wrap(m.getAFKEnabled))
-	router.GET("/v1/devices/:hostname/openconfig", withAuth.Wrap(m.getDeviceOpenConfig))
-	router.GET("/v1/devices/:hostname/ietfconfig", withAuth.Wrap(m.getDeviceIETFConfig))
-	router.GET("/v1/devices/:hostname/config", withAuth.Wrap(m.getDeviceConfig))
-	router.GET("/v1/report/last", withAuth.Wrap(m.getLastReport))
-	router.GET("/v1/report/last/complete", withAuth.Wrap(m.getLastCompleteReport))
-	router.GET("/v1/report/last/successful", withAuth.Wrap(m.getLastSuccessfulReport))
-	router.POST("/v1/build/trigger", withAuth.Wrap(m.triggerBuild))
+	mux.HandleFunc("GET /metrics", prometheusMetrics(promhttp.Handler()))
+	mux.HandleFunc("GET /api/version", getVersion)
+	mux.HandleFunc("GET /api/health", healthCheck)
+	mux.HandleFunc("GET /v1/devices/{hostname}/afk_enabled", withAuth.Wrap(m.getAFKEnabled))
+	mux.HandleFunc("GET /v1/devices/{hostname}/openconfig", withAuth.Wrap(m.getDeviceOpenConfig))
+	mux.HandleFunc("GET /v1/devices/{hostname}/ietfconfig", withAuth.Wrap(m.getDeviceIETFConfig))
+	mux.HandleFunc("GET /v1/devices/{hostname}/config", withAuth.Wrap(m.getDeviceConfig))
+	mux.HandleFunc("GET /v1/report/last", withAuth.Wrap(m.getLastReport))
+	mux.HandleFunc("GET /v1/report/last/complete", withAuth.Wrap(m.getLastCompleteReport))
+	mux.HandleFunc("GET /v1/report/last/successful", withAuth.Wrap(m.getLastSuccessfulReport))
+	mux.HandleFunc("POST /v1/build/trigger", withAuth.Wrap(m.triggerBuild))
 
 	if enablepprof {
-		router.HandlerFunc(http.MethodGet, "/debug/pprof/", pprof.Index)
-		router.HandlerFunc(http.MethodGet, "/debug/pprof/allocs", pprof.Index)
-		router.HandlerFunc(http.MethodGet, "/debug/pprof/goroutine", pprof.Index)
-		router.HandlerFunc(http.MethodGet, "/debug/pprof/heap", pprof.Index)
-		router.HandlerFunc(http.MethodGet, "/debug/pprof/profile", pprof.Profile)
-		router.HandlerFunc(http.MethodGet, "/debug/pprof/trace", pprof.Trace)
-		router.HandlerFunc(http.MethodGet, "/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("GET /debug/pprof/", pprof.Index)
+		mux.HandleFunc("GET /debug/pprof/allocs", pprof.Index)
+		mux.HandleFunc("GET /debug/pprof/goroutine", pprof.Index)
+		mux.HandleFunc("GET /debug/pprof/heap", pprof.Index)
+		mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
+		mux.HandleFunc("GET /debug/pprof/symbol", pprof.Symbol)
 	}
 
 	listenSocket := fmt.Sprint(address, ":", port)
 	log.Info().Msgf("Start webserver - listening on %s", listenSocket)
 
-	httpServer := http.Server{Addr: listenSocket, Handler: router}
+	httpServer := http.Server{Addr: listenSocket, Handler: mux}
 
 	// TODO: handle http failure! with a channel
 	go func() {

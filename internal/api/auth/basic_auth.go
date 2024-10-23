@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/criteo/data-aggregation-api/internal/config"
-	"github.com/julienschmidt/httprouter"
 	"github.com/rs/zerolog/log"
 )
 
@@ -74,24 +73,24 @@ func (b *BasicAuth) configureLdap(ldap *LDAPAuth) error {
 	return nil
 }
 
-func (b *BasicAuth) Wrap(next httprouter.Handle) httprouter.Handle {
+func (b *BasicAuth) Wrap(next http.HandlerFunc) http.HandlerFunc {
 	switch b.mode {
 	case noAuth:
-		return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) { next(w, r, ps) }
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { next(w, r) })
 	case ldapMode:
 		return BasicAuthLDAP(b.ldapAuth, next)
 	default:
-		return func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			log.Error().Str("auth-method", string(b.mode)).Str("authentication issue", "bad server configuration").Send()
 			http.Error(w, "authentication issue: bad server configuration", http.StatusInternalServerError)
-		}
+		})
 	}
 }
 
 // BasicAuthLDAP is a middleware wrapping the target HTTP HandlerFunc.
 // It retrieves BasicAuth credentials and authenticate against LDAP.
-func BasicAuthLDAP(ldapAuth *LDAPAuth, next httprouter.Handle) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func BasicAuthLDAP(ldapAuth *LDAPAuth, next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()
 		if !ok {
 			w.Header().Set(wwwAuthenticate, realm)
@@ -103,6 +102,6 @@ func BasicAuthLDAP(ldapAuth *LDAPAuth, next httprouter.Handle) httprouter.Handle
 			http.Error(w, unauthorizedResponse, http.StatusUnauthorized)
 			return
 		}
-		next(w, r, ps)
-	}
+		next(w, r)
+	})
 }
