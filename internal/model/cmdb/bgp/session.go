@@ -25,6 +25,7 @@ type DeviceSession struct {
 	Description     string                         `json:"description"      validate:"omitempty"`
 	LocalAddress    Address                        `json:"local_address"    validate:"required"`
 	MaximumPrefixes uint32                         `json:"maximum_prefixes" validate:"omitempty"`
+	DelayOpenTimer  uint16                         `json:"delay_open_timer" validate:"omitempty"`
 	EnforceFirstAs  bool                           `json:"enforce_first_as" validate:"omitempty"`
 }
 
