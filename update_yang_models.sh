@@ -1,6 +1,6 @@
 set -e
 
-VERSION=2ef55dcae9232c246905e3efc6f0e39ee346c9c4
+VERSION=0305e9f4acca26754e9c669a993bf7167c6529dc
 
 rm -rf internal/model/openconfig/*
 rm -rf internal/model/ietf/*
@@ -8,7 +8,7 @@ rm .build -rf
 mkdir .build && cd .build
 
 git clone https://github.com/openconfig/ygot.git --depth 1 && cd ygot
-git clone https://github.com/kpetremann/openconfig-public.git public --depth 1
+git clone https://github.com/criteo-forks/openconfig-public.git public --depth 1
 git clone https://github.com/YangModels/yang.git --depth 1
 
 git -C public fetch --tags
