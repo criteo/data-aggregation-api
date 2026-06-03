@@ -197,7 +197,7 @@ func (m *Manager) triggerBuild(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 	select {
 	case m.newBuildRequest <- struct{}{}:
-		_, _ = w.Write([]byte("{\"message\": \"new build request received\""))
+		_, _ = w.Write([]byte("{\"message\": \"new build request received\"}"))
 	default:
 		_, _ = w.Write([]byte("{\"message\": \"a build request is already pending\""))
 	}
