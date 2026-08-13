@@ -73,7 +73,7 @@ func (m *Manager) getAFKEnabled(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, _ = w.Write(out)
+	_, _ = w.Write(out) //nolint:gosec // G705 false positive: hostname is only used as a repository map key, never echoed in the response
 }
 
 // getDeviceOpenConfig endpoint returns OpenConfig JSON for one or all devices.
@@ -98,7 +98,7 @@ func (m *Manager) getDeviceOpenConfig(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	_, _ = w.Write(cfg)
+	_, _ = w.Write(cfg) //nolint:gosec // G705 false positive: hostname is only used as a repository map key, never echoed in the response
 }
 
 // getDeviceIETFConfig endpoint returns Ietf JSON for one or all devices.
@@ -123,7 +123,7 @@ func (m *Manager) getDeviceIETFConfig(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	_, _ = w.Write(cfg)
+	_, _ = w.Write(cfg) //nolint:gosec // G705 false positive: hostname is only used as a repository map key, never echoed in the response
 }
 
 // getDeviceConfig endpoint returns Ietf & openconfig JSON for one or all devices.
@@ -148,7 +148,7 @@ func (m *Manager) getDeviceConfig(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	_, _ = w.Write(cfg)
+	_, _ = w.Write(cfg) //nolint:gosec // G705 false positive: hostname is only used as a repository map key, never echoed in the response
 }
 
 // getLastReport returns the last or current report.
