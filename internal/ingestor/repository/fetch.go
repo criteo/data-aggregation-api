@@ -22,9 +22,7 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 	// TODO: factorize
 
 	// Devices
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if v, err := dcim.GetNetworkInventory(); err != nil {
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
@@ -35,12 +33,10 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 		} else {
 			repo.DeviceInventory = v
 		}
-	}()
+	})
 
 	// BGP Global configuration
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if v, err := cmdb.GetBGPGlobal(); err != nil {
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
@@ -51,12 +47,10 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 		} else {
 			repo.CmdbBGPGlobal = v
 		}
-	}()
+	})
 
 	// BGP sessions
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if v, err := cmdb.GetBGPSessions(); err != nil {
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
@@ -67,12 +61,10 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 		} else {
 			repo.CmdbBGPSessions = v
 		}
-	}()
+	})
 
 	// Peer groups
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if v, err := cmdb.GetPeerGroups(); err != nil { //nolint:staticcheck // to ignore deprecation notice
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
@@ -83,12 +75,10 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 		} else {
 			repo.CmdbPeerGroups = v
 		}
-	}()
+	})
 
 	// Route policies
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if v, err := cmdb.GetRoutePolicies(); err != nil {
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
@@ -99,12 +89,10 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 		} else {
 			repo.CmdbRoutePolicies = v
 		}
-	}()
+	})
 
 	// Prefix lists
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if v, err := cmdb.GetPrefixLists(); err != nil {
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
@@ -115,12 +103,10 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 		} else {
 			repo.CmdbPrefixLists = v
 		}
-	}()
+	})
 
 	// Community lists
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if v, err := cmdb.GetCommunityLists(); err != nil {
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
@@ -131,11 +117,9 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 		} else {
 			repo.CmdbCommunityLists = v
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if v, err := cmdb.GetSNMP(); err != nil {
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
@@ -146,7 +130,7 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 		} else {
 			repo.CmdbSNMP = v
 		}
-	}()
+	})
 
 	// Wait for responses
 	go func() {

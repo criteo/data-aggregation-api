@@ -153,11 +153,9 @@ func StartBuildLoop(deviceRepo router.DevicesRepository, reports *report.Reposit
 		reports.StartNewReport()
 		var reportCh = make(chan report.Message, 1)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			reports.Watch(reportCh)
-		}()
+		})
 
 		// Start the build
 		reports.UpdateStatus(report.InProgress)
