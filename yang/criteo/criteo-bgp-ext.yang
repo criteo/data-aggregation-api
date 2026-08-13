@@ -1,0 +1,149 @@
+module criteo-bgp-ext {
+
+  yang-version "1";
+
+  namespace "http://criteo.com/yang/criteo-bgp-ext";
+
+  prefix "criteo-bgp-ext";
+
+  import openconfig-network-instance { prefix oc-netinst; }
+  import openconfig-inet-types { prefix oc-inet; }
+  import openconfig-extensions { prefix oc-ext; }
+
+  organization
+    "Criteo";
+
+  contact
+    "Criteo Network Team";
+
+  description
+    "This module adds the BGP leaves Criteo needs but which OpenConfig
+    does not model:
+
+      - delay-open-timer, on BGP neighbors and peer-groups
+      - redistributed-networks and aggregates, on the global AFI-SAFIs
+    ";
+
+  oc-ext:openconfig-version "0.1.0";
+
+  revision "2026-08-13" {
+    description
+      "Initial revision, replacing the criteo-forks/openconfig-public
+      patches.";
+    reference "0.1.0";
+  }
+
+  // ---------------------------------------------------------------------
+  // Groupings
+  // ---------------------------------------------------------------------
+
+  grouping bgp-neighbor-group-delay-open-timer {
+    description
+      "Delay open timer of a BGP neighbor or peer-group.";
+
+    leaf delay-open-timer {
+      type uint16 {
+        range "0..240";
+      }
+      units "seconds";
+      description
+        "Sets the delay open timer value. The DelayOpen optional session
+         attribute allows implementations to be configured to delay
+         sending an OPEN message for a specific time period (DelayOpenTime).
+         The delay allows the remote BGP peer time to send the first
+         OPEN message.
+
+         Valid range is 1-240 seconds as per RFC 4271. A value of 0
+         disables the delay open timer (OPEN message sent immediately).";
+      reference
+        "RFC 4271: A Border Gateway Protocol 4 (BGP-4), Section 8.2.2";
+    }
+  }
+
+  grouping bgp-global-afi-safi-origination {
+    description
+      "Prefixes originated by BGP for one address family.";
+
+    leaf-list redistributed-networks {
+      type oc-inet:ip-prefix;
+      description "Network prefix to advertise via BGP";
+    }
+
+    leaf-list aggregates {
+      type oc-inet:ip-prefix;
+      description "Network prefix to aggregate via BGP";
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Augments - BGP neighbor timers
+  // ---------------------------------------------------------------------
+
+  augment "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+          "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:bgp/" +
+          "oc-netinst:neighbors/oc-netinst:neighbor/oc-netinst:timers/" +
+          "oc-netinst:config" {
+    description
+      "Delay open timer of a BGP neighbor.";
+
+    uses bgp-neighbor-group-delay-open-timer;
+  }
+
+  augment "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+          "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:bgp/" +
+          "oc-netinst:neighbors/oc-netinst:neighbor/oc-netinst:timers/" +
+          "oc-netinst:state" {
+    description
+      "Delay open timer of a BGP neighbor.";
+
+    uses bgp-neighbor-group-delay-open-timer;
+  }
+
+  // ---------------------------------------------------------------------
+  // Augments - BGP peer-group timers
+  // ---------------------------------------------------------------------
+
+  augment "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+          "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:bgp/" +
+          "oc-netinst:peer-groups/oc-netinst:peer-group/oc-netinst:timers/" +
+          "oc-netinst:config" {
+    description
+      "Delay open timer of a BGP peer-group.";
+
+    uses bgp-neighbor-group-delay-open-timer;
+  }
+
+  augment "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+          "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:bgp/" +
+          "oc-netinst:peer-groups/oc-netinst:peer-group/oc-netinst:timers/" +
+          "oc-netinst:state" {
+    description
+      "Delay open timer of a BGP peer-group.";
+
+    uses bgp-neighbor-group-delay-open-timer;
+  }
+
+  // ---------------------------------------------------------------------
+  // Augments - BGP global AFI-SAFIs
+  // ---------------------------------------------------------------------
+
+  augment "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+          "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:bgp/" +
+          "oc-netinst:global/oc-netinst:afi-safis/oc-netinst:afi-safi/" +
+          "oc-netinst:config" {
+    description
+      "Prefixes originated by BGP for this address family.";
+
+    uses bgp-global-afi-safi-origination;
+  }
+
+  augment "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+          "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:bgp/" +
+          "oc-netinst:global/oc-netinst:afi-safis/oc-netinst:afi-safi/" +
+          "oc-netinst:state" {
+    description
+      "Prefixes originated by BGP for this address family.";
+
+    uses bgp-global-afi-safi-origination;
+  }
+}
