@@ -1,7 +1,7 @@
 set -e
 
 # Upstream openconfig version
-VERSION=7777c94ff390b6c86296328d6ea830396a79891d
+VERSION=f34434149a47aa8ff82ffd32add3aacb7c880af2
 
 # ygot generator version. Must match the github.com/openconfig/ygot version in
 # go.mod: the generated code is compiled against that library.
