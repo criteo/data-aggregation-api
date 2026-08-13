@@ -1,6 +1,7 @@
 set -e
 
-VERSION=0305e9f4acca26754e9c669a993bf7167c6529dc
+# Upstream openconfig version
+VERSION=7777c94ff390b6c86296328d6ea830396a79891d
 
 rm -rf internal/model/openconfig/*
 rm -rf internal/model/ietf/*
@@ -8,11 +9,15 @@ rm .build -rf
 mkdir .build && cd .build
 
 git clone https://github.com/openconfig/ygot.git --depth 1 && cd ygot
-git clone https://github.com/criteo-forks/openconfig-public.git public --depth 1
+git clone https://github.com/openconfig/public.git public
 git clone https://github.com/YangModels/yang.git --depth 1
 
 git -C public fetch --tags
 git -C public checkout $VERSION
+
+# AFK augmentations
+cp ../../yang/criteo/*.yang public/release/models/
+
 mkdir openconfig
 
 go run generator/generator.go -path=public,deps -output_file=openconfig/oc.go \
@@ -33,7 +38,8 @@ go run generator/generator.go -path=public,deps -output_file=openconfig/oc.go \
   public/release/models/network-instance/openconfig-network-instance.yang \
   public/release/models/bgp/openconfig-bgp.yang \
   public/release/models/policy/openconfig-routing-policy.yang \
-  public/release/models/bgp/openconfig-bgp-policy.yang
+  public/release/models/bgp/openconfig-bgp-policy.yang \
+  public/release/models/criteo-bgp-ext.yang
 
 go run generator/generator.go -path=yang,deps -output_file=ietf \
   -package_name=ietf -generate_fakeroot -fakeroot_name=device \
