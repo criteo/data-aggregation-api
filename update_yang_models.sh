@@ -1,68 +1,63 @@
 set -e
 
 # Upstream openconfig version
-VERSION=0305e9f4acca26754e9c669a993bf7167c6529dc
+VERSION=7777c94ff390b6c86296328d6ea830396a79891d
+
+# ygot generator version. Must match the github.com/openconfig/ygot version in
+# go.mod: the generated code is compiled against that library.
+YGOT_VERSION=v0.35.0
+
+GENERATOR="go run github.com/openconfig/ygot/generator@$YGOT_VERSION"
+
+# Flags shared by both generations. They shape the generated Go API, so
+# changing any of them renames types or methods used across internal/.
+COMMON_FLAGS="-generate_fakeroot -fakeroot_name=device \
+  -shorten_enum_leaf_names \
+  -trim_enum_openconfig_prefix \
+  -typedef_enum_with_defmod \
+  -enum_suffix_for_simple_union_enums \
+  -exclude_modules=ietf-interfaces \
+  -generate_simple_unions \
+  -list_builder_key_threshold=3"
 
 rm -rf internal/model/openconfig/*
 rm -rf internal/model/ietf/*
 rm .build -rf
 mkdir .build && cd .build
 
-git clone https://github.com/openconfig/ygot.git --depth 1 && cd ygot
-git clone https://github.com/openconfig/public.git public --depth 1
-git clone https://github.com/YangModels/yang.git --depth 1
-
-git -C public fetch --tags
+# openconfig-public: release/models holds the OpenConfig modules, third_party
+# the IETF modules they import (ietf-yang-types, ietf-inet-types, ...).
+git clone --depth 1 --filter=blob:none --sparse https://github.com/openconfig/public.git public
+git -C public sparse-checkout set release/models third_party
 git -C public checkout $VERSION
 
+# YangModels/yang: only the IETF RFC modules are needed, out of ~174k files.
+git clone --depth 1 --filter=blob:none --sparse https://github.com/YangModels/yang.git
+git -C yang sparse-checkout set standard/ietf/RFC
+
 # AFK augmentations
-cp ../../yang/criteo/*.yang public/release/models/
+cp ../yang/criteo/*.yang public/release/models/
 
 mkdir openconfig
 
-go run generator/generator.go -path=public,deps -output_file=openconfig/oc.go \
-  -generate_path_structs -path_structs_output_file=openconfig/oc_path.go \
-  -package_name=openconfig -generate_fakeroot -fakeroot_name=device -compress_paths=true \
-  -shorten_enum_leaf_names \
-  -trim_enum_openconfig_prefix \
-  -typedef_enum_with_defmod \
-  -enum_suffix_for_simple_union_enums \
-  -exclude_modules=ietf-interfaces \
-  -generate_rename \
-  -generate_append \
-  -generate_getters \
-  -generate_leaf_getters \
-  -generate_simple_unions \
-  -annotations \
-  -list_builder_key_threshold=3 \
+$GENERATOR -path=public -output_file=openconfig/oc.go \
+  -package_name=openconfig -compress_paths=true \
+  $COMMON_FLAGS \
   public/release/models/network-instance/openconfig-network-instance.yang \
-  public/release/models/bgp/openconfig-bgp.yang \
   public/release/models/policy/openconfig-routing-policy.yang \
   public/release/models/bgp/openconfig-bgp-policy.yang \
-  public/release/models/criteo-bgp-ext.yang
+  public/release/models/criteo-bgp-ext.yang \
+  public/release/models/criteo-oc-deviations.yang
 
-go run generator/generator.go -path=yang,deps -output_file=ietf \
-  -package_name=ietf -generate_fakeroot -fakeroot_name=device \
-  -shorten_enum_leaf_names \
-  -trim_enum_openconfig_prefix \
-  -typedef_enum_with_defmod \
-  -enum_suffix_for_simple_union_enums \
-  -exclude_modules=ietf-interfaces \
-  -generate_rename \
-  -generate_append \
-  -generate_getters \
-  -generate_leaf_getters \
-  -generate_simple_unions \
-  -annotations \
-  -list_builder_key_threshold=3 \
+$GENERATOR -path=yang -output_file=ietf \
+  -package_name=ietf \
+  $COMMON_FLAGS \
   yang/standard/ietf/RFC/ietf-system.yang \
   yang/standard/ietf/RFC/ietf-snmp.yang \
-  yang/standard/ietf/RFC/ietf-snmp-community.yang \
+  yang/standard/ietf/RFC/ietf-snmp-community.yang
 
+mv openconfig/* ../internal/model/openconfig/
+mv ietf ../internal/model/ietf/ietf.go
 
-
-mv openconfig/* ../../internal/model/openconfig/
-mv ietf ../../internal/model/ietf/ietf.go
-
-cd ../../
+cd ..
 rm .build -rf

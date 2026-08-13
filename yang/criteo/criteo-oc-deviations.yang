@@ -1,0 +1,124 @@
+module criteo-oc-deviations {
+
+  yang-version "1";
+
+  namespace "http://criteo.com/yang/criteo-oc-deviations";
+
+  prefix "criteo-oc-dev";
+
+  import openconfig-network-instance { prefix oc-netinst; }
+  import openconfig-extensions { prefix oc-ext; }
+
+  organization
+    "Criteo";
+
+  contact
+    "Criteo Network Team";
+
+  description
+    "This module prunes the parts of the OpenConfig tree that AFK does not
+    generate configuration for.
+
+    openconfig-network-instance instantiates every routing protocol and
+    every forwarding subtree it knows about. Generating Go code for all of
+    them costs a large amount of dead code in internal/model/openconfig.
+    'deviate not-supported' removes those nodes from the schema, so ygot
+    does not emit them at all.
+
+    Adding a feature back is a matter of deleting the matching deviation
+    and regenerating. Nothing else in the repository has to change.
+
+    Note: ygot honours these by default. Pass -ignore_deviate_notsupported
+    to the generator to get the full tree back for debugging.";
+
+  oc-ext:openconfig-version "0.1.0";
+
+  revision "2026-08-13" {
+    description
+      "Initial revision.";
+    reference "0.1.0";
+  }
+
+  // ---------------------------------------------------------------------
+  // Routing protocols other than BGP
+  // ---------------------------------------------------------------------
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:isis" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:ospfv2" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:ospfv3" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:pim" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:igmp" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:pcep" {
+    deviate not-supported;
+  }
+
+  // ---------------------------------------------------------------------
+  // BGP RIB - operational state only, AFK only generates configuration
+  // ---------------------------------------------------------------------
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:protocols/oc-netinst:protocol/oc-netinst:bgp/" +
+            "oc-netinst:rib" {
+    deviate not-supported;
+  }
+
+  // ---------------------------------------------------------------------
+  // Forwarding and switching subtrees
+  // ---------------------------------------------------------------------
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:mpls" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:afts" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:segment-routing" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:evpn" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:fdb" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:policy-forwarding" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
+            "oc-netinst:connection-points" {
+    deviate not-supported;
+  }
+}
