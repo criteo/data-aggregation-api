@@ -48,7 +48,7 @@ func extractASPathPrepend(term *routingpolicy.RoutePolicyTerm) (*openconfig.Rout
 
 func extractCommunities(term *routingpolicy.RoutePolicyTerm) []openconfig.RoutingPolicy_PolicyDefinition_Statement_Actions_BgpActions_SetCommunity_Inline_Communities_Union {
 	var communities []openconfig.RoutingPolicy_PolicyDefinition_Statement_Actions_BgpActions_SetCommunity_Inline_Communities_Union
-	for _, community := range strings.Split(term.SetCommunity, stringListSeparator) {
+	for community := range strings.SplitSeq(term.SetCommunity, stringListSeparator) {
 		if community != "" {
 			communities = append(communities, openconfig.UnionString(community))
 		}

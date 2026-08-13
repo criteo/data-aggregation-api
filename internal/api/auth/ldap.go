@@ -70,7 +70,7 @@ func (l *LDAPAuth) StartAuthenticationWorkers(ctx context.Context, workersCount 
 	if workersCount <= 0 {
 		return fmt.Errorf("'WorkersCount' must be greater than 0: %d", workersCount)
 	}
-	for i := 0; i < workersCount; i++ {
+	for range workersCount {
 		go l.spawnConnectionWorker(ctx)
 	}
 	return nil
