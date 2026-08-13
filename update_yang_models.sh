@@ -1,7 +1,7 @@
 set -e
 
 # Upstream openconfig version
-VERSION=7777c94ff390b6c86296328d6ea830396a79891d
+VERSION=0305e9f4acca26754e9c669a993bf7167c6529dc
 
 rm -rf internal/model/openconfig/*
 rm -rf internal/model/ietf/*
@@ -9,7 +9,7 @@ rm .build -rf
 mkdir .build && cd .build
 
 git clone https://github.com/openconfig/ygot.git --depth 1 && cd ygot
-git clone https://github.com/openconfig/public.git public
+git clone https://github.com/openconfig/public.git public --depth 1
 git clone https://github.com/YangModels/yang.git --depth 1
 
 git -C public fetch --tags
