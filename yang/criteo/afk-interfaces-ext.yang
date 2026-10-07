@@ -1,0 +1,217 @@
+module afk-interfaces-ext {
+  yang-version 1.1;
+
+  namespace "urn:afk:yang:afk-interfaces-ext";
+  prefix afk-if-ext;
+
+  import openconfig-interfaces  { prefix oc-if;   }
+  import openconfig-if-ethernet { prefix oc-eth;  }
+  import openconfig-if-ip       { prefix oc-ip;   }
+  import openconfig-inet-types  { prefix oc-inet; }
+  import iana-if-type           { prefix ianaift; }
+
+  organization "Criteo";
+
+  description
+    "AFK additions to openconfig-interfaces, for SONiC configuration that
+     OpenConfig has no leaf for.
+
+     Every leaf here maps onto a CONFIG_DB field.
+
+     Note that the 'when' statements below document intent for anyone
+     validating a document with pyang or yanglint. The generator decodes with
+     encoding/json and enforces the same constraints itself, because nothing
+     in that path evaluates a 'when'.";
+
+  revision 2026-10-06 {
+    description
+      "Add neighbor-name and neighbor-port, the remote end of the link as
+       recorded in the CMDB.";
+  }
+
+  revision 2026-10-02 {
+    description
+      "fec leaf removed: FEC is carried by openconfig-if-ethernet fec-mode,
+       extended with the FEC_AUTO and FEC_RS identities.";
+  }
+
+  revision 2026-09-30 {
+    description
+      "fec carries the SONiC value (auto, rs, fc, none) as recorded in the
+       CMDB instead of an INTERFACE_FEC identityref; the FEC_AUTO and FEC_RS
+       identities are removed.";
+  }
+
+  revision 2026-09-22 {
+    description
+      "Initial revision: management, use-ipv6-link-local-only, alias, lanes,
+       index, fec, forced-routes, and the FEC_AUTO / FEC_RS identities.";
+  }
+
+  // ---------------------------------------------------------------------------
+  // INTERFACE_FEC identities
+  // ---------------------------------------------------------------------------
+
+  identity FEC_AUTO {
+    base oc-eth:INTERFACE_FEC;
+    description
+      "Let the platform choose the FEC mode. Maps to PORT/fec 'auto'.
+
+       openconfig-if-ethernet has no identity for this, and leaving fec-mode
+       unset already means FEC is not managed: the field is then omitted
+       from CONFIG_DB.";
+  }
+
+  identity FEC_RS {
+    base oc-eth:INTERFACE_FEC;
+    description
+      "Reed-Solomon, whichever 802.3 clause applies to the port (RS528 on NRZ
+       ports, RS544 on PAM4 ports). Maps to PORT/fec 'rs'.
+
+       openconfig-if-ethernet only offers clause-specific identities
+       (FEC_RS528, FEC_RS544, ...). The CMDB only records the algorithm
+       family and SONiC's PORT/fec only accepts rs|fc|none|auto, so naming a
+       clause would fabricate information the device discards.";
+  }
+
+  // ---------------------------------------------------------------------------
+  // /interfaces/interface/config
+  // ---------------------------------------------------------------------------
+
+  augment "/oc-if:interfaces/oc-if:interface/oc-if:config" {
+    description
+      "Interface-level settings that apply to any interface type, so they sit
+       beside description rather than under the ethernet container.";
+
+    leaf management {
+      type boolean;
+      default false;
+      description
+        "Marks the interface SONiC configures through MGMT_PORT and
+         MGMT_INTERFACE rather than PORT and INTERFACE.
+
+         OpenConfig has no leaf for this and type cannot discriminate it: the
+         management port is ethernetCsmacd exactly like a front-panel port.
+         Without the marker the only discriminator is the name, which ties the
+         generator to a spelling convention.";
+    }
+
+    leaf use-ipv6-link-local-only {
+      type boolean;
+      description
+        "Address this interface with its IPv6 link-local address only, as
+         BGP unnumbered peering does. Maps to
+         INTERFACE/ipv6_use_link_local_only.
+
+         openconfig-if-ip has no equivalent: its ipv6/config/enabled only
+         turns the stack on, which is a different statement. The CMDB value
+         is exposed as-is: true maps to 'enable', false to 'disable'. Absent
+         means the CMDB holds no value for the interface, so the field is
+         omitted from CONFIG_DB.";
+    }
+
+    leaf neighbor-name {
+      type string { length "1..255"; }
+      description
+        "Hostname of the device at the other end of the link connected to
+         this interface, as recorded in the CMDB links. Maps to
+         DEVICE_NEIGHBOR/name.
+
+         openconfig-lldp only models neighbors as discovered state: this is
+         the intended neighbor, which is configuration. Absent when the CMDB
+         records no link on the interface.";
+    }
+
+    leaf neighbor-port {
+      type string { length "1..255"; }
+      description
+        "Name of the interface at the other end of the link, as the remote
+         device names it: its port layout vendor name (e.g. Ethernet0) when
+         the remote device has a port layout, its CMDB interface name
+         otherwise. Maps to DEVICE_NEIGHBOR/port.
+
+         Present if and only if neighbor-name is.";
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // /interfaces/interface/ethernet/config
+  // ---------------------------------------------------------------------------
+
+  augment "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:config" {
+    when "../../oc-if:config/oc-if:type = 'ianaift:ethernetCsmacd'" {
+      description
+        "Physical front-panel ports only. openconfig-if-ethernet admits the
+         ethernet container for ieee8023adLag too, where these leaves are
+         meaningless.";
+    }
+    description
+      "Physical port attributes SONiC models in PORT. Types mirror
+       sonic-port.yang so the mapping to CONFIG_DB is field-for-field.";
+
+    leaf alias {
+      type string { length "1..128"; }
+      description
+        "Vendor-specific port alias or front-panel label, e.g. etp1a. Maps to
+         PORT/alias.
+
+         Distinct from oc-if:description, which references RFC 2863 ifAlias
+         and is a free-text description rather than a hardware label.";
+    }
+
+    leaf lanes {
+      type string {
+        length "1..128";
+        pattern "[0-9]+(,[0-9]+)*";
+      }
+      description
+        "Comma-separated hardware serdes lanes backing this port. Maps to
+         PORT/lanes, which sonic-port.yang marks mandatory for every
+         non-chassis device.";
+    }
+
+    leaf index {
+      type uint16;
+      description
+        "Front-panel port index. Maps to PORT/index.
+
+         Zero is a legitimate index on 0-based platforms, so absent and 0 are
+         different states and the leaf must not be defaulted.";
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // /interfaces/interface/subinterfaces/subinterface/ipv4/config
+  // ---------------------------------------------------------------------------
+
+  augment "/oc-if:interfaces/oc-if:interface/oc-if:subinterfaces/"
+        + "oc-if:subinterface/oc-ip:ipv4/oc-ip:config" {
+    when "../../../../oc-if:config/afk-if-ext:management = 'true'" {
+      description
+        "Management interface only: forced routes are what keep management
+         reachability independent of the data plane, and have no meaning on a
+         front-panel port.";
+    }
+    description
+      "Management reachability that must hold before any routing protocol is
+       up.";
+
+    leaf-list forced-routes {
+      type oc-inet:ipv4-prefix;
+      ordered-by user;
+      description
+        "Destinations pinned to the management interface. Maps to
+         MGMT_INTERFACE/forced_mgmt_routes.
+
+         SONiC renders each entry as a policy rule -- 'ip rule add to <prefix>
+         lookup <table>' at a preference above the main table -- not as a
+         route. They therefore carry no next-hop of their own: they resolve
+         through the management default route, whose next-hop comes from
+         MGMT_INTERFACE/gwaddr and is modelled as a static default route in
+         the management network-instance.
+
+         ordered-by user because the CONFIG_DB field is a JSON array: keeping
+         document order keeps the generated configuration stable.";
+    }
+  }
+}
