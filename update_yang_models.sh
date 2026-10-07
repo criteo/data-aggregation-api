@@ -22,7 +22,7 @@ COMMON_FLAGS="-generate_fakeroot -fakeroot_name=device \
 
 rm -rf internal/model/openconfig/*
 rm -rf internal/model/ietf/*
-rm .build -rf
+rm -rf .build
 mkdir .build && cd .build
 
 # openconfig-public: release/models holds the OpenConfig modules, third_party
@@ -63,4 +63,4 @@ mv openconfig/* ../internal/model/openconfig/
 mv ietf ../internal/model/ietf/ietf.go
 
 cd ..
-rm .build -rf
+rm -rf .build
