@@ -9,14 +9,12 @@ import (
 	"github.com/criteo/data-aggregation-api/internal/report"
 )
 
-const ingestorNumber = 7
-
 // FetchAssets get data from all ingestors.
 func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 	wg := sync.WaitGroup{}
 	var repo Assets
 
-	var fetchFailure = make(chan report.Severity, ingestorNumber)
+	var fetchFailure = make(chan report.Severity)
 
 	// TODO: severity should be defined by the user via the configuration file
 	// TODO: factorize
