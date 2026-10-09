@@ -1,0 +1,87 @@
+module criteo-system-ext {
+
+  yang-version "1";
+
+  namespace "http://criteo.com/yang/criteo-system-ext";
+
+  prefix "criteo-system-ext";
+
+  import openconfig-system { prefix oc-sys; }
+  import openconfig-extensions { prefix oc-ext; }
+
+  organization
+    "Criteo";
+
+  contact
+    "Criteo Network Team";
+
+  description
+    "This module adds the system leaves Criteo needs but which OpenConfig
+    does not model: the DCIM facts SONiC's DEVICE_METADATA describes the
+    device with.
+
+      - hwsku, the DCIM device model
+      - type, the DCIM role, as SONiC names it
+
+    The hostname is the standard openconfig-system leaf.";
+
+  oc-ext:openconfig-version "0.1.0";
+
+  revision "2026-10-08" {
+    description
+      "Initial revision.";
+    reference "0.1.0";
+  }
+
+  // ---------------------------------------------------------------------
+  // Groupings
+  // ---------------------------------------------------------------------
+
+  grouping system-device-metadata {
+    description
+      "What the device is, as SONiC's DEVICE_METADATA needs it.";
+
+    leaf hwsku {
+      type string {
+        length "1..255";
+      }
+      description
+        "The hardware SKU of the device, the DCIM device model.
+        SONiC selects its port, buffer and SAI profiles from it,
+        so a wrong value brings the device back with the wrong
+        ports after a config reload.";
+      reference
+        "sonic-device_metadata: DEVICE_METADATA/localhost/hwsku";
+    }
+
+    leaf type {
+      type string {
+        length "1..255";
+        pattern "ToRRouter|LeafRouter|SpineRouter";
+      }
+      description
+        "The role of the device in the network, the DCIM role mapped to
+        the SONiC device type (e.g. ToRRouter).";
+      reference
+        "sonic-device_metadata: DEVICE_METADATA/localhost/type";
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Augments - system
+  // ---------------------------------------------------------------------
+
+  augment "/oc-sys:system/oc-sys:config" {
+    description
+      "DEVICE_METADATA facts of the device.";
+
+    uses system-device-metadata;
+  }
+
+  augment "/oc-sys:system/oc-sys:state" {
+    description
+      "DEVICE_METADATA facts of the device.";
+
+    uses system-device-metadata;
+  }
+}

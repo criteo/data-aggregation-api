@@ -49,6 +49,7 @@ $GENERATOR -path=public -output_file=openconfig/oc.go \
   public/release/models/system/openconfig-system.yang \
   public/release/models/criteo-aaa-ext.yang \
   public/release/models/criteo-bgp-ext.yang \
+  public/release/models/criteo-system-ext.yang \
   public/release/models/criteo-oc-deviations.yang
 
 $GENERATOR -path=yang -output_file=ietf \

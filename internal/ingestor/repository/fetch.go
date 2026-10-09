@@ -9,7 +9,7 @@ import (
 	"github.com/criteo/data-aggregation-api/internal/report"
 )
 
-const ingestorNumber = 10
+const ingestorNumber = 13
 
 // FetchAssets get data from all ingestors.
 func FetchAssets(reportCh chan report.Message) (*Assets, error) {
@@ -169,6 +169,33 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 			fetchFailure <- report.Warning
 		} else {
 			repo.CmdbTacacs = v
+		}
+	})
+
+	// SONiC mappings, for DEVICE_METADATA
+	wg.Go(func() {
+		if v, err := cmdb.GetSONiCHwskuMappings(); err != nil {
+			reportCh <- report.Message{
+				Type:     report.IngestorMessage,
+				Severity: report.Warning,
+				Text:     err.Error(),
+			}
+			fetchFailure <- report.Warning
+		} else {
+			repo.CmdbSONiCHwsku = v
+		}
+	})
+
+	wg.Go(func() {
+		if v, err := cmdb.GetSONiCRoleMappings(); err != nil {
+			reportCh <- report.Message{
+				Type:     report.IngestorMessage,
+				Severity: report.Warning,
+				Text:     err.Error(),
+			}
+			fetchFailure <- report.Warning
+		} else {
+			repo.CmdbSONiCRoles = v
 		}
 	})
 

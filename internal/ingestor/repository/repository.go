@@ -10,6 +10,7 @@ import (
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/ntp"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/routingpolicy"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/snmp"
+	"github.com/criteo/data-aggregation-api/internal/model/cmdb/sonic"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/syslog"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/tacacs"
 	"github.com/criteo/data-aggregation-api/internal/model/dcim"
@@ -35,6 +36,9 @@ type AssetsPerDevice struct {
 	NTP            map[string]*ntp.NTP
 	Syslog         map[string]*syslog.Syslog
 	Tacacs         map[string]*tacacs.Tacacs
+	// SONiCHwsku and SONiCType are keyed by DCIM device type and role ID.
+	SONiCHwsku map[int]string
+	SONiCType  map[int]string
 }
 
 type Assets struct {
@@ -49,6 +53,8 @@ type Assets struct {
 	CmdbNTP            []*ntp.NTP
 	CmdbSyslog         []*syslog.Syslog
 	CmdbTacacs         []*tacacs.Tacacs
+	CmdbSONiCHwsku     []*sonic.HwskuMapping
+	CmdbSONiCRoles     []*sonic.RoleMapping
 }
 
 func (i *Assets) Precompute() *AssetsPerDevice {
@@ -63,6 +69,8 @@ func (i *Assets) Precompute() *AssetsPerDevice {
 	precomputed.NTP = cmdb.PrecomputeNTP(i.CmdbNTP)
 	precomputed.Syslog = cmdb.PrecomputeSyslog(i.CmdbSyslog)
 	precomputed.Tacacs = cmdb.PrecomputeTacacs(i.CmdbTacacs)
+	precomputed.SONiCHwsku = cmdb.PrecomputeSONiCHwsku(i.CmdbSONiCHwsku)
+	precomputed.SONiCType = cmdb.PrecomputeSONiCType(i.CmdbSONiCRoles)
 	return &precomputed
 }
 
@@ -79,6 +87,8 @@ func (i *Assets) getStats() map[string]int {
 		"NTP":            len(i.CmdbNTP),
 		"syslog":         len(i.CmdbSyslog),
 		"TACACS":         len(i.CmdbTacacs),
+		"SONiCHwsku":     len(i.CmdbSONiCHwsku),
+		"SONiCRoles":     len(i.CmdbSONiCRoles),
 	}
 }
 
