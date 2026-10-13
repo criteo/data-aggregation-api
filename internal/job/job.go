@@ -43,10 +43,12 @@ func precompute(reportCh chan report.Message, ingestorRepo *repository.Assets) (
 }
 
 // Compute generates OpenConfig data for each device.
+// Devices which fail to build are set to nil, like the ones which failed to precompute.
 func compute(reportCh chan<- report.Message, ingestorRepo *repository.Assets, devices map[string]*device.Device) (uint32, error) {
 	wg := sync.WaitGroup{}
 
-	failed := false
+	var failedHostnames []string
+	var allComputeErrors error
 	var builtCount atomic.Uint32
 	var mutex sync.Mutex
 
@@ -61,34 +63,31 @@ func compute(reportCh chan<- report.Message, ingestorRepo *repository.Assets, de
 		}
 
 		wg.Add(1)
-		go func(dev *device.Device) {
+		go func(hostname string, dev *device.Device) {
 			defer wg.Done()
 			if err := dev.Generateconfigs(); err != nil {
 				reportCh <- report.Message{
-					Type:     report.PrecomputeMessage,
+					Type:     report.ComputeMessage,
 					Severity: report.Error,
 					Text:     err.Error(),
 				}
 				mutex.Lock()
-				failed = true
+				failedHostnames = append(failedHostnames, hostname)
+				allComputeErrors = errors.Join(allComputeErrors, err)
 				mutex.Unlock()
 			} else {
-				mutex.Lock()
 				builtCount.Add(1)
-				mutex.Unlock()
 			}
-		}(devices[dev.Hostname])
+		}(dev.Hostname, devices[dev.Hostname])
 	}
 
 	wg.Wait()
 
-	successfullyBuilt := builtCount.Load()
-
-	if failed {
-		return successfullyBuilt, errors.New("OpenConfig conversion failed")
+	for _, hostname := range failedHostnames {
+		devices[hostname] = nil
 	}
 
-	return successfullyBuilt, nil
+	return builtCount.Load(), allComputeErrors
 }
 
 // RunBuild start the build pipeline to convert CMDB data to OpenConfig for each devices.
@@ -137,7 +136,14 @@ func RunBuild(reportCh chan report.Message) (map[string]*device.Device, report.S
 	stats.Log()
 
 	if computeError != nil {
-		return nil, stats, computeError
+		if config.Cfg.Build.AllDevicesMustBuild {
+			return nil, stats, errors.New("OpenConfig conversion failed: all devices must build")
+		}
+		reportCh <- report.Message{
+			Type:     report.ComputeMessage,
+			Severity: report.Warning,
+			Text:     "OpenConfig conversion failed for some devices",
+		}
 	}
 
 	return devices, stats, nil
