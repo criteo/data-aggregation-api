@@ -8,6 +8,13 @@ import (
 )
 
 func deviceDatacenterFilter() url.Values {
+	return prefixedDeviceDatacenterFilter("")
+}
+
+// prefixedDeviceDatacenterFilter returns the datacenter filter for objects
+// which are not directly attached to a device (e.g. logical interfaces are
+// attached via their parent interface: "parent_interface__device__site__name").
+func prefixedDeviceDatacenterFilter(prefix string) url.Values {
 	datacenterFilter := ""
 
 	switch string(config.Cfg.NetBox.DatacenterFilterKey) {
@@ -22,7 +29,7 @@ func deviceDatacenterFilter() url.Values {
 	}
 
 	params := url.Values{}
-	params.Set(datacenterFilter, config.Cfg.Datacenter)
+	params.Set(prefix+datacenterFilter, config.Cfg.Datacenter)
 
 	return params
 }

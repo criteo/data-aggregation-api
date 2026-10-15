@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	bgpconvertors "github.com/criteo/data-aggregation-api/internal/convertor/bgp"
+	ifconvertors "github.com/criteo/data-aggregation-api/internal/convertor/interfaces"
 	ntpconvertors "github.com/criteo/data-aggregation-api/internal/convertor/ntp"
 	rpconvertors "github.com/criteo/data-aggregation-api/internal/convertor/routingpolicy"
 	snmpconvertors "github.com/criteo/data-aggregation-api/internal/convertor/snmp"
@@ -14,6 +15,7 @@ import (
 	tacacsconvertors "github.com/criteo/data-aggregation-api/internal/convertor/tacacs"
 	"github.com/criteo/data-aggregation-api/internal/ingestor/repository"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/bgp"
+	cmdbif "github.com/criteo/data-aggregation-api/internal/model/cmdb/interfaces"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/ntp"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/routingpolicy"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/snmp"
@@ -38,20 +40,25 @@ type GeneratedConfig struct {
 }
 
 type Device struct {
-	mutex           *sync.Mutex
-	Dcim            *dcim.NetworkDevice
-	Config          *GeneratedConfig
-	BGPGlobalConfig *bgp.BGPGlobal
-	SNMP            *snmp.SNMP
-	NTP             *ntp.NTP
-	Syslog          *syslog.Syslog
-	Tacacs          *tacacs.Tacacs
-	Sessions        []*bgp.Session
-	PeerGroups      []*bgp.PeerGroup
-	PrefixLists     []*routingpolicy.PrefixList
-	CommunityLists  []*routingpolicy.CommunityList
-	RoutePolicies   []*routingpolicy.RoutePolicy
-	AFKEnabled      bool
+	mutex             *sync.Mutex
+	Dcim              *dcim.NetworkDevice
+	Config            *GeneratedConfig
+	BGPGlobalConfig   *bgp.BGPGlobal
+	SNMP              *snmp.SNMP
+	NTP               *ntp.NTP
+	Syslog            *syslog.Syslog
+	Tacacs            *tacacs.Tacacs
+	Sessions          []*bgp.Session
+	PeerGroups        []*bgp.PeerGroup
+	PrefixLists       []*routingpolicy.PrefixList
+	CommunityLists    []*routingpolicy.CommunityList
+	RoutePolicies     []*routingpolicy.RoutePolicy
+	DeviceInterfaces  []*cmdbif.DeviceInterface
+	LogicalInterfaces []*cmdbif.LogicalInterface
+	ManagementRoutes  []*cmdbif.ManagementRoute
+	PortLayout        cmdbif.PortLayoutTable
+	Neighbors         cmdbif.NeighborTable
+	AFKEnabled        bool
 
 	// Hwsku and SONiCType are DEVICE_METADATA's hwsku and type, empty when
 	// the device's model or role is not mapped.
@@ -142,6 +149,33 @@ func NewDevice(dcimInfo *dcim.NetworkDevice, devicesData *repository.AssetsPerDe
 		log.Warn().Msgf("no SONiC type mapped to the device role %q of %s", dcimInfo.DeviceRole.Name, dcimInfo.Hostname)
 	}
 
+	device.DeviceInterfaces, ok = devicesData.DeviceInterfaces[dcimInfo.Hostname]
+	if !ok {
+		log.Warn().Msgf("no device interfaces found for %s", dcimInfo.Hostname)
+	}
+
+	device.LogicalInterfaces, ok = devicesData.LogicalInterfaces[dcimInfo.Hostname]
+	if !ok {
+		log.Warn().Msgf("no logical interfaces found for %s", dcimInfo.Hostname)
+	}
+
+	// Only the devices whose management routing table is generated have
+	// management routes: having none is normal.
+	device.ManagementRoutes = devicesData.ManagementRoutes[dcimInfo.Hostname]
+
+	// The port layout is shared by all the devices of the same hardware model
+	// and network role. Devices without one keep their CMDB interface names.
+	layoutKey := cmdbif.PortLayoutKey{DeviceTypeID: dcimInfo.DeviceTypeID(), RoleID: dcimInfo.RoleID()}
+	device.PortLayout, ok = devicesData.PortLayouts[layoutKey]
+	if !ok {
+		log.Warn().Msgf("no port layout found for %s (device type %d, role %d)", dcimInfo.Hostname, layoutKey.DeviceTypeID, layoutKey.RoleID)
+	}
+
+	device.Neighbors, ok = devicesData.Neighbors[dcimInfo.Hostname]
+	if !ok {
+		log.Warn().Msgf("no links found for %s", dcimInfo.Hostname)
+	}
+
 	return device, nil
 }
 
@@ -165,6 +199,16 @@ func (d *Device) Generateconfigs() error {
 	aaaConfig, err := tacacsconvertors.TacacsToOpenConfigAAA(d.Tacacs)
 	if err != nil {
 		return fmt.Errorf("convert from TACACS to OpenConfig failed: %w", err)
+	}
+
+	interfacesConfig, networkInstanceInterfaces, err := ifconvertors.InterfacesToOpenconfig(d.Dcim.Hostname, d.DeviceInterfaces, d.LogicalInterfaces, d.PortLayout, d.Neighbors, d.AFKEnabled)
+	if err != nil {
+		return fmt.Errorf("convert from Interfaces to OpenConfig failed: %w", err)
+	}
+
+	networkInstanceProtocols, err := ifconvertors.ManagementRoutesToOpenconfig(d.Dcim.Hostname, d.ManagementRoutes, d.DeviceInterfaces, d.PortLayout, interfacesConfig, networkInstanceInterfaces)
+	if err != nil {
+		return fmt.Errorf("convert from Management Routes to OpenConfig failed: %w", err)
 	}
 
 	// Assemble global configuration
@@ -192,6 +236,48 @@ func (d *Device) Generateconfigs() error {
 			Ntp:      ntpconvertors.NTPToOpenconfig(d.NTP),
 			Logging:  syslogconvertors.SyslogToOpenconfig(d.Syslog),
 		},
+	}
+
+	if len(interfacesConfig) > 0 {
+		config.Interface = interfacesConfig
+	}
+
+	// Bind interfaces to their network instance (VRF). Non-default network
+	// instances only exist through those bindings and are typed as L3VRF.
+	for networkInstanceName, interfaceBindings := range networkInstanceInterfaces {
+		networkInstance, ok := config.NetworkInstance[networkInstanceName]
+		if !ok {
+			name := networkInstanceName
+			networkInstance = &openconfig.NetworkInstance{
+				Name: &name,
+				Type: openconfig.NetworkInstanceTypes_NETWORK_INSTANCE_TYPE_L3VRF,
+			}
+			config.NetworkInstance[networkInstanceName] = networkInstance
+		}
+		networkInstance.Interface = interfaceBindings
+	}
+
+	// Add the routing protocol instances (static routes) to their network
+	// instance, which exists through the interface bindings above.
+	for networkInstanceName, protocols := range networkInstanceProtocols {
+		networkInstance, ok := config.NetworkInstance[networkInstanceName]
+		if !ok {
+			name := networkInstanceName
+			networkInstance = &openconfig.NetworkInstance{
+				Name: &name,
+				Type: openconfig.NetworkInstanceTypes_NETWORK_INSTANCE_TYPE_L3VRF,
+			}
+			config.NetworkInstance[networkInstanceName] = networkInstance
+		}
+		if networkInstance.Protocol == nil {
+			networkInstance.Protocol = make(map[openconfig.NetworkInstance_Protocol_Key]*openconfig.NetworkInstance_Protocol)
+		}
+		for key, protocol := range protocols {
+			if _, duplicate := networkInstance.Protocol[key]; duplicate {
+				return fmt.Errorf("duplicate protocol %s/%s in network instance %s of %s", key.Identifier, key.Name, networkInstanceName, d.Dcim.Hostname)
+			}
+			networkInstance.Protocol[key] = protocol
+		}
 	}
 
 	devJSON, err := ygot.EmitJSON(

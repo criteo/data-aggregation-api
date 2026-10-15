@@ -7,6 +7,9 @@ module criteo-oc-deviations {
   prefix "criteo-oc-dev";
 
   import openconfig-network-instance { prefix oc-netinst; }
+  import openconfig-interfaces { prefix oc-if; }
+  import openconfig-if-ip { prefix oc-ip; }
+  import openconfig-vlan { prefix oc-vlan; }
   import openconfig-extensions { prefix oc-ext; }
 
   organization
@@ -31,7 +34,14 @@ module criteo-oc-deviations {
     Note: ygot honours these by default. Pass -ignore_deviate_notsupported
     to the generator to get the full tree back for debugging.";
 
-  oc-ext:openconfig-version "0.1.0";
+  oc-ext:openconfig-version "0.2.0";
+
+  revision "2026-08-17" {
+    description
+      "Prune the openconfig-if-ip subtrees AFK does not generate
+      (VRRP, static neighbors, IPv6 router advertisements).";
+    reference "0.2.0";
+  }
 
   revision "2026-08-13" {
     description
@@ -119,6 +129,62 @@ module criteo-oc-deviations {
 
   deviation "/oc-netinst:network-instances/oc-netinst:network-instance/" +
             "oc-netinst:connection-points" {
+    deviate not-supported;
+  }
+
+  // ---------------------------------------------------------------------
+  // openconfig-if-ip subtrees - AFK only generates addresses
+  // ---------------------------------------------------------------------
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-if:subinterfaces/" +
+            "oc-if:subinterface/oc-ip:ipv4/oc-ip:addresses/oc-ip:address/" +
+            "oc-ip:vrrp" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-if:subinterfaces/" +
+            "oc-if:subinterface/oc-ip:ipv6/oc-ip:addresses/oc-ip:address/" +
+            "oc-ip:vrrp" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-if:subinterfaces/" +
+            "oc-if:subinterface/oc-ip:ipv4/oc-ip:neighbors" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-if:subinterfaces/" +
+            "oc-if:subinterface/oc-ip:ipv6/oc-ip:neighbors" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-if:subinterfaces/" +
+            "oc-if:subinterface/oc-ip:ipv6/oc-ip:router-advertisement" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-vlan:routed-vlan/" +
+            "oc-ip:ipv4/oc-ip:addresses/oc-ip:address/oc-ip:vrrp" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-vlan:routed-vlan/" +
+            "oc-ip:ipv6/oc-ip:addresses/oc-ip:address/oc-ip:vrrp" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-vlan:routed-vlan/" +
+            "oc-ip:ipv4/oc-ip:neighbors" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-vlan:routed-vlan/" +
+            "oc-ip:ipv6/oc-ip:neighbors" {
+    deviate not-supported;
+  }
+
+  deviation "/oc-if:interfaces/oc-if:interface/oc-vlan:routed-vlan/" +
+            "oc-ip:ipv6/oc-ip:router-advertisement" {
     deviate not-supported;
   }
 }

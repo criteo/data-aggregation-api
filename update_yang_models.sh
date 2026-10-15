@@ -7,7 +7,8 @@ VERSION=f34434149a47aa8ff82ffd32add3aacb7c880af2
 # go.mod: the generated code is compiled against that library.
 YGOT_VERSION=v0.35.0
 
-GENERATOR="go run github.com/openconfig/ygot/generator@$YGOT_VERSION"
+# -trimpath keeps the local module cache path out of the generated headers.
+GENERATOR="go run -trimpath github.com/openconfig/ygot/generator@$YGOT_VERSION"
 
 # Flags shared by both generations. They shape the generated Go API, so
 # changing any of them renames types or methods used across internal/.
@@ -22,7 +23,7 @@ COMMON_FLAGS="-generate_fakeroot -fakeroot_name=device \
 
 rm -rf internal/model/openconfig/*
 rm -rf internal/model/ietf/*
-rm .build -rf
+rm -rf .build
 mkdir .build && cd .build
 
 # openconfig-public: release/models holds the OpenConfig modules, third_party
@@ -46,10 +47,12 @@ $GENERATOR -path=public -output_file=openconfig/oc.go \
   public/release/models/network-instance/openconfig-network-instance.yang \
   public/release/models/policy/openconfig-routing-policy.yang \
   public/release/models/bgp/openconfig-bgp-policy.yang \
+  public/release/models/interfaces/openconfig-if-ip.yang \
   public/release/models/system/openconfig-system.yang \
   public/release/models/criteo-aaa-ext.yang \
   public/release/models/criteo-bgp-ext.yang \
   public/release/models/criteo-system-ext.yang \
+  public/release/models/afk-interfaces-ext.yang \
   public/release/models/criteo-oc-deviations.yang
 
 $GENERATOR -path=yang -output_file=ietf \
@@ -63,4 +66,4 @@ mv openconfig/* ../internal/model/openconfig/
 mv ietf ../internal/model/ietf/ietf.go
 
 cd ..
-rm .build -rf
+rm -rf .build
