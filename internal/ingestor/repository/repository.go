@@ -8,6 +8,7 @@ import (
 	"github.com/criteo/data-aggregation-api/internal/ingestor/cmdb"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/bgp"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/dhcprelay"
+	"github.com/criteo/data-aggregation-api/internal/model/cmdb/dns"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/interfaces"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/ntp"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/routingpolicy"
@@ -36,6 +37,7 @@ type AssetsPerDevice struct {
 	RoutePolicies     map[string][]*routingpolicy.RoutePolicy
 	SNMP              map[string]*snmp.SNMP
 	NTP               map[string]*ntp.NTP
+	DNS               map[string]*dns.DNS
 	Syslog            map[string]*syslog.Syslog
 	Tacacs            map[string]*tacacs.Tacacs
 	DHCPRelays        map[string][]*dhcprelay.Relay
@@ -60,6 +62,7 @@ type Assets struct {
 	CmdbCommunityLists    []*routingpolicy.CommunityList
 	CmdbSNMP              []*snmp.SNMP
 	CmdbNTP               []*ntp.NTP
+	CmdbDNS               []*dns.DNS
 	CmdbSyslog            []*syslog.Syslog
 	CmdbTacacs            []*tacacs.Tacacs
 	CmdbDHCPRelays        []*dhcprelay.Relay
@@ -87,6 +90,7 @@ func (i *Assets) Precompute() *AssetsPerDevice {
 	precomputed.PortLayouts = cmdb.PrecomputePortLayouts(i.CmdbPortLayouts)
 	precomputed.Neighbors = cmdb.PrecomputeNeighbors(i.CmdbLinks, i.portLayoutPerDevice(precomputed.PortLayouts))
 	precomputed.NTP = cmdb.PrecomputeNTP(i.CmdbNTP)
+	precomputed.DNS = cmdb.PrecomputeDNS(i.CmdbDNS)
 	precomputed.Syslog = cmdb.PrecomputeSyslog(i.CmdbSyslog)
 	precomputed.Tacacs = cmdb.PrecomputeTacacs(i.CmdbTacacs)
 	precomputed.DHCPRelays = cmdb.PrecomputeDHCPRelays(i.CmdbDHCPRelays)
@@ -120,6 +124,7 @@ func (i *Assets) getStats() map[string]int {
 		"communityLists":    len(i.CmdbCommunityLists),
 		"SNMP":              len(i.CmdbSNMP),
 		"NTP":               len(i.CmdbNTP),
+		"DNS":               len(i.CmdbDNS),
 		"syslog":            len(i.CmdbSyslog),
 		"TACACS":            len(i.CmdbTacacs),
 		"DHCPRelays":        len(i.CmdbDHCPRelays),

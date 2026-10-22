@@ -8,6 +8,7 @@ import (
 
 	bgpconvertors "github.com/criteo/data-aggregation-api/internal/convertor/bgp"
 	dhcprelayconvertors "github.com/criteo/data-aggregation-api/internal/convertor/dhcprelay"
+	dnsconvertors "github.com/criteo/data-aggregation-api/internal/convertor/dns"
 	ifconvertors "github.com/criteo/data-aggregation-api/internal/convertor/interfaces"
 	ntpconvertors "github.com/criteo/data-aggregation-api/internal/convertor/ntp"
 	rpconvertors "github.com/criteo/data-aggregation-api/internal/convertor/routingpolicy"
@@ -18,6 +19,7 @@ import (
 	"github.com/criteo/data-aggregation-api/internal/ingestor/repository"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/bgp"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/dhcprelay"
+	"github.com/criteo/data-aggregation-api/internal/model/cmdb/dns"
 	cmdbif "github.com/criteo/data-aggregation-api/internal/model/cmdb/interfaces"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/ntp"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/routingpolicy"
@@ -49,6 +51,7 @@ type Device struct {
 	BGPGlobalConfig *bgp.BGPGlobal
 	SNMP            *snmp.SNMP
 	NTP             *ntp.NTP
+	DNS             *dns.DNS
 	Syslog          *syslog.Syslog
 	Tacacs          *tacacs.Tacacs
 	DHCPRelays      []*dhcprelay.Relay
@@ -127,6 +130,11 @@ func NewDevice(dcimInfo *dcim.NetworkDevice, devicesData *repository.AssetsPerDe
 	device.NTP, ok = devicesData.NTP[dcimInfo.Hostname]
 	if !ok {
 		log.Warn().Msgf("no ntp found for %s", dcimInfo.Hostname)
+	}
+
+	device.DNS, ok = devicesData.DNS[dcimInfo.Hostname]
+	if !ok {
+		log.Warn().Msgf("no dns found for %s", dcimInfo.Hostname)
 	}
 
 	device.Syslog, ok = devicesData.Syslog[dcimInfo.Hostname]
@@ -213,12 +221,17 @@ func (d *Device) Generateconfigs() error {
 		return fmt.Errorf("convert from TACACS to OpenConfig failed: %w", err)
 	}
 
+	dnsConfig, err := dnsconvertors.DNSToOpenconfig(d.DNS)
+	if err != nil {
+		return fmt.Errorf("convert from DNS to OpenConfig failed: %w", err)
+	}
+
 	relayAgentConfig, err := dhcprelayconvertors.DHCPRelayToOpenConfig(d.DHCPRelays)
 	if err != nil {
 		return fmt.Errorf("convert from DHCP relay to OpenConfig failed: %w", err)
 	}
 
-	interfacesConfig, networkInstanceInterfaces, err := ifconvertors.InterfacesToOpenconfig(d.Dcim.Hostname, d.Interfaces, d.AFKEnabled)
+	interfacesConfig, networkInstanceInterfaces, err := ifconvertors.InterfacesToOpenconfig(d.Dcim.Hostname, d.Interfaces)
 	if err != nil {
 		return fmt.Errorf("convert from Interfaces to OpenConfig failed: %w", err)
 	}
@@ -252,6 +265,7 @@ func (d *Device) Generateconfigs() error {
 			Type:     optional(d.SONiCType),
 			Aaa:      aaaConfig,
 			Ntp:      ntpconvertors.NTPToOpenconfig(d.NTP),
+			Dns:      dnsConfig,
 			Logging:  syslogconvertors.SyslogToOpenconfig(d.Syslog),
 		},
 	}

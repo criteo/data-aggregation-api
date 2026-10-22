@@ -68,7 +68,7 @@ func managementDevice(address string, vrf string, routes []*cmdbif.ManagementRou
 		return nil, nil, nil, err
 	}
 
-	interfaces, bindings, err := ifconvertors.InterfacesToOpenconfig(hostname, ifaces, false)
+	interfaces, bindings, err := ifconvertors.InterfacesToOpenconfig(hostname, ifaces)
 	if err != nil {
 		return nil, nil, nil, err
 	}

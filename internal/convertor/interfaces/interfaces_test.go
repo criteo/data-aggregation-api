@@ -51,14 +51,14 @@ func newIPAddress(address string, family int) *cmdbif.IPAddress {
 // toOpenconfig precomputes then converts the interfaces of one device, as
 // NewDevice and Generateconfigs do.
 func toOpenconfig(t *testing.T, deviceInterfaces []*cmdbif.DeviceInterface, logicalInterfaces []*cmdbif.LogicalInterface,
-	portLayout cmdbif.PortLayoutTable, neighbors cmdbif.NeighborTable, withPortIndex bool,
+	portLayout cmdbif.PortLayoutTable, neighbors cmdbif.NeighborTable,
 ) (map[string]*openconfig.Interface, ifconvertors.NetworkInstanceInterfaces, error) {
 	t.Helper()
 	ifaces, err := cmdb.ResolveInterfaces(hostname, deviceInterfaces, logicalInterfaces, nil, portLayout, neighbors)
 	if err != nil {
 		return nil, nil, err
 	}
-	return ifconvertors.InterfacesToOpenconfig(hostname, ifaces, withPortIndex)
+	return ifconvertors.InterfacesToOpenconfig(hostname, ifaces)
 }
 
 func TestInterfacesToOpenconfig(t *testing.T) {
@@ -101,7 +101,6 @@ func TestInterfacesToOpenconfig(t *testing.T) {
 		[]*cmdbif.LogicalInterface{ethernet0Unit0, sviUnit0, loopbackUnit0, consoleUnit0},
 		nil,
 		nil,
-		false,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
@@ -223,7 +222,7 @@ func TestInterfacesToOpenconfig(t *testing.T) {
 }
 
 func TestInterfacesToOpenconfigEmpty(t *testing.T) {
-	got, gotBindings, err := toOpenconfig(t, nil, nil, nil, nil, false)
+	got, gotBindings, err := toOpenconfig(t, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -242,7 +241,7 @@ func TestInterfacesToOpenconfigSwitchedVlanAccess(t *testing.T) {
 	unit0.Mode = cmdbif.ModeAccess
 	unit0.UntaggedVlan = &cmdbif.VLANLite{Vid: 300, Name: "servers"}
 
-	got, gotBindings, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, []*cmdbif.LogicalInterface{unit0}, nil, nil, false)
+	got, gotBindings, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, []*cmdbif.LogicalInterface{unit0}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -271,7 +270,7 @@ func TestInterfacesToOpenconfigSwitchedVlanTagged(t *testing.T) {
 		{Vid: 300, Name: "servers"}, // duplicate must be removed
 	}
 
-	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{lag}, []*cmdbif.LogicalInterface{unit0}, nil, nil, false)
+	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{lag}, []*cmdbif.LogicalInterface{unit0}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -300,7 +299,7 @@ func TestInterfacesToOpenconfigSubinterfaceMtu(t *testing.T) {
 	unit100.Mtu = 9000
 	unit100.IPv4Address = newIPAddress("192.0.2.1/24", 4)
 
-	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, []*cmdbif.LogicalInterface{unit100}, nil, nil, false)
+	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, []*cmdbif.LogicalInterface{unit100}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -395,7 +394,7 @@ func TestInterfacesToOpenconfigErrors(t *testing.T) {
 				deviceInterfaces = test.deviceInterfaces()
 			}
 
-			_, _, err := toOpenconfig(t, deviceInterfaces, []*cmdbif.LogicalInterface{test.logicalInterface()}, nil, nil, false)
+			_, _, err := toOpenconfig(t, deviceInterfaces, []*cmdbif.LogicalInterface{test.logicalInterface()}, nil, nil)
 			if err == nil {
 				t.Fatal("expected an error")
 			}
@@ -413,7 +412,6 @@ func TestInterfacesToOpenconfigDuplicates(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			false,
 		)
 		if err == nil || !strings.Contains(err.Error(), "duplicate device interface") {
 			t.Errorf("unexpected error: %v", err)
@@ -429,7 +427,6 @@ func TestInterfacesToOpenconfigDuplicates(t *testing.T) {
 			},
 			nil,
 			nil,
-			false,
 		)
 		if err == nil || !strings.Contains(err.Error(), "duplicate logical interface") {
 			t.Errorf("unexpected error: %v", err)
@@ -484,7 +481,6 @@ func TestInterfacesToOpenconfigPortLayout(t *testing.T) {
 		[]*cmdbif.LogicalInterface{unit0, noLanesUnit0},
 		portLayout,
 		nil,
-		true,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
@@ -589,7 +585,7 @@ func TestInterfacesToOpenconfigNeighbors(t *testing.T) {
 		"to_spine_02": nil,                                       // in several links
 	}
 
-	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{uplink, mgmt, unlinked}, nil, portLayout, neighbors, false)
+	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{uplink, mgmt, unlinked}, nil, portLayout, neighbors)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -619,28 +615,6 @@ func TestInterfacesToOpenconfigNeighbors(t *testing.T) {
 		if !strings.Contains(json, leaf) {
 			t.Errorf("missing %s in %s", leaf, json)
 		}
-	}
-}
-
-// TestInterfacesToOpenconfigPortIndexDisabled ensures the port index is only
-// emitted for AFK managed devices: other devices get alias and lanes only.
-func TestInterfacesToOpenconfigPortIndexDisabled(t *testing.T) {
-	uplink := newDeviceInterface("to_spine_01", true)
-	portLayout := cmdbif.PortLayoutTable{
-		"to_spine_01": newPortLayout("to_spine_01", "Ethernet0", "etp1", 0, 1, 2, 3),
-	}
-
-	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{uplink}, nil, portLayout, nil, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-
-	ethernet := got["Ethernet0"].Ethernet
-	if ethernet == nil || ethernet.Alias == nil || ethernet.Lanes == nil {
-		t.Fatalf("alias and lanes must be emitted regardless of the port index: %+v", ethernet)
-	}
-	if ethernet.Index != nil {
-		t.Errorf("port index must not be emitted, got %d", *ethernet.Index)
 	}
 }
 
@@ -680,7 +654,6 @@ func TestInterfacesToOpenconfigPortLayoutConflict(t *testing.T) {
 		nil,
 		portLayout,
 		nil,
-		true,
 	)
 	if err == nil || !strings.Contains(err.Error(), "both map to port Ethernet0") {
 		t.Errorf("unexpected error: %v", err)
@@ -698,7 +671,7 @@ func TestInterfacesToOpenconfigPhysicalWithoutLayout(t *testing.T) {
 	unit0.Mode = cmdbif.ModeTagged
 	unit0.TaggedVlans = []*cmdbif.VLANLite{{Vid: 810, Name: "servers"}}
 
-	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{uplink}, []*cmdbif.LogicalInterface{unit0}, nil, nil, false)
+	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{uplink}, []*cmdbif.LogicalInterface{unit0}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -721,7 +694,7 @@ func TestInterfacesToOpenconfigIPv6LinkLocalOnlyNonZeroUnit(t *testing.T) {
 	unit100 := newLogicalInterface("Ethernet0", 100, cmdbif.TypeL3)
 	unit100.UseIPv6LinkLocalOnly = ygot.Bool(true)
 
-	_, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, []*cmdbif.LogicalInterface{unit100}, nil, nil, false)
+	_, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, []*cmdbif.LogicalInterface{unit100}, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "only the logical unit 0 can carry it") {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -735,7 +708,7 @@ func TestInterfacesToOpenconfigIPv6LinkLocalOnlyFalseNonZeroUnit(t *testing.T) {
 	unit100 := newLogicalInterface("Ethernet0", 100, cmdbif.TypeL3)
 	unit100.UseIPv6LinkLocalOnly = ygot.Bool(false)
 
-	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, []*cmdbif.LogicalInterface{unit100}, nil, nil, false)
+	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, []*cmdbif.LogicalInterface{unit100}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -748,7 +721,7 @@ func TestInterfacesToOpenconfigUnsupportedSpeed(t *testing.T) {
 	ethernet0 := newDeviceInterface("Ethernet0", true)
 	ethernet0.Speed = 123456
 
-	_, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, nil, nil, nil, false)
+	_, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{ethernet0}, nil, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "unsupported speed") {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -772,7 +745,6 @@ func TestInterfacesToOpenconfigDeterministicJSON(t *testing.T) {
 			[]*cmdbif.LogicalInterface{unit0},
 			nil,
 			nil,
-			false,
 		)
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)

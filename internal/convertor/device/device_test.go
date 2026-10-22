@@ -10,6 +10,7 @@ import (
 
 	"github.com/criteo/data-aggregation-api/internal/ingestor/repository"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/bgp"
+	"github.com/criteo/data-aggregation-api/internal/model/cmdb/dns"
 	cmdbif "github.com/criteo/data-aggregation-api/internal/model/cmdb/interfaces"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/ntp"
 	"github.com/criteo/data-aggregation-api/internal/model/cmdb/routingpolicy"
@@ -17,13 +18,14 @@ import (
 	"github.com/criteo/data-aggregation-api/internal/model/dcim"
 )
 
-// TestGenerateconfigsSystem checks that the NTP and the TACACS+ configurations,
-// which both live under openconfig-system, are served side by side, next to
+// TestGenerateconfigsSystem checks that the NTP, DNS and TACACS+ configurations,
+// which all live under openconfig-system, are served side by side, next to
 // system/config which always holds the hostname.
 func TestGenerateconfigsSystem(t *testing.T) {
 	tests := []struct {
 		name     string
 		ntp      *ntp.NTP
+		dns      *dns.DNS
 		tacacs   *tacacs.Tacacs
 		wantKeys []string
 	}{
@@ -39,6 +41,17 @@ func TestGenerateconfigsSystem(t *testing.T) {
 			wantKeys: []string{"config", "ntp"},
 		},
 		{
+			name:     "NTP and DNS",
+			ntp:      &ntp.NTP{ServerList: []ntp.Server{{Name: "ntp1", ServerAddress: "10.0.0.1"}}},
+			dns:      &dns.DNS{ServerList: []dns.Server{{Name: "dns1", ServerAddress: "10.0.0.53"}}},
+			wantKeys: []string{"config", "dns", "ntp"},
+		},
+		{
+			name:     "DNS without server",
+			dns:      &dns.DNS{},
+			wantKeys: []string{"config"},
+		},
+		{
 			name:     "TACACS+ only",
 			tacacs:   &tacacs.Tacacs{ServerList: []tacacs.Server{{ServerAddress: "10.10.10.10"}}},
 			wantKeys: []string{"aaa", "config"},
@@ -52,6 +65,7 @@ func TestGenerateconfigsSystem(t *testing.T) {
 				Dcim:            &dcim.NetworkDevice{Hostname: "test-device"},
 				BGPGlobalConfig: &bgp.BGPGlobal{},
 				NTP:             tt.ntp,
+				DNS:             tt.dns,
 				Tacacs:          tt.tacacs,
 			}
 
@@ -265,5 +279,45 @@ func TestGenerateconfigsNTP(t *testing.T) {
 	}
 	if diff := cmp.Diff(got, []string{"192.0.2.1", "192.0.2.2"}); diff != "" {
 		t.Errorf("unexpected NTP servers (-got +want):\n%s\nfull JSON:\n%s", diff, raw)
+	}
+}
+
+// TestGenerateconfigsDNS: the servers land where afk-node reads them,
+// system/dns/servers/server[].address, sorted by address.
+func TestGenerateconfigsDNS(t *testing.T) {
+	d := &Device{
+		mutex:           &sync.Mutex{},
+		Dcim:            &dcim.NetworkDevice{Hostname: "tor01-01"},
+		BGPGlobalConfig: &bgp.BGPGlobal{},
+		DNS: &dns.DNS{ServerList: []dns.Server{
+			{Name: "dns2", ServerAddress: "192.0.2.54"},
+			{Name: "dns1", ServerAddress: "192.0.2.53"},
+		}},
+	}
+	if err := d.Generateconfigs(); err != nil {
+		t.Fatal(err)
+	}
+	raw := d.Config.JSONOpenConfig
+
+	var doc struct {
+		System struct {
+			DNS struct {
+				Servers struct {
+					Server []struct {
+						Address string `json:"address"`
+					} `json:"server"`
+				} `json:"servers"`
+			} `json:"dns"`
+		} `json:"system"`
+	}
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(doc.System.DNS.Servers.Server))
+	for _, s := range doc.System.DNS.Servers.Server {
+		got = append(got, s.Address)
+	}
+	if diff := cmp.Diff(got, []string{"192.0.2.53", "192.0.2.54"}); diff != "" {
+		t.Errorf("unexpected DNS servers (-got +want):\n%s\nfull JSON:\n%s", diff, raw)
 	}
 }

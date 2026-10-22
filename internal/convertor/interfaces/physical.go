@@ -101,10 +101,7 @@ func interfaceType(hostname string, iface *cmdbif.Interface) openconfig.E_IETFIn
 // DeviceInterfaceToOpenconfig converts one precomputed CMDB device interface,
 // with its logical interfaces, to OpenConfig.
 // OpenConfig path: /interfaces/interface/.
-//
-// withPortIndex emits the front-panel port index derived from the port short
-// name, which only AFK managed devices need (see PortIndex).
-func DeviceInterfaceToOpenconfig(hostname string, iface *cmdbif.Interface, withPortIndex bool) (*openconfig.Interface, error) {
+func DeviceInterfaceToOpenconfig(hostname string, iface *cmdbif.Interface) (*openconfig.Interface, error) {
 	deviceInterface := iface.DeviceInterface
 	name := iface.Name
 	ifaceType := interfaceType(hostname, iface)
@@ -115,7 +112,7 @@ func DeviceInterfaceToOpenconfig(hostname string, iface *cmdbif.Interface, withP
 	var ethernet *openconfig.Interface_Ethernet
 	if ifaceType == openconfig.IETFInterfaces_InterfaceType_ethernetCsmacd {
 		var err error
-		ethernet, err = ethernetToOpenconfig(hostname, deviceInterface, iface.Port, withPortIndex)
+		ethernet, err = ethernetToOpenconfig(hostname, deviceInterface, iface.Port)
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +185,7 @@ func DeviceInterfaceToOpenconfig(hostname string, iface *cmdbif.Interface, withP
 // interface and of its port layout entry (alias, lanes, index).
 // OpenConfig path: /interfaces/interface/ethernet/.
 // It returns nil when no Ethernet attribute is set in the CMDB.
-func ethernetToOpenconfig(hostname string, deviceInterface *cmdbif.DeviceInterface, port *cmdbif.PortLayout, withPortIndex bool) (*openconfig.Interface_Ethernet, error) {
+func ethernetToOpenconfig(hostname string, deviceInterface *cmdbif.DeviceInterface, port *cmdbif.PortLayout) (*openconfig.Interface_Ethernet, error) {
 	ethernet := openconfig.Interface_Ethernet{
 		AutoNegotiate: deviceInterface.Autonegotiation,
 	}
@@ -200,12 +197,10 @@ func ethernetToOpenconfig(hostname string, deviceInterface *cmdbif.DeviceInterfa
 		if lanes := port.LanesString(); lanes != "" {
 			ethernet.Lanes = &lanes
 		}
-		if withPortIndex {
-			if index, ok := PortIndex(port.VendorShortName); ok {
-				ethernet.Index = &index
-			} else {
-				log.Debug().Msgf("no port index derivable from %q for interface %s of %s", port.VendorShortName, deviceInterface.Name, hostname)
-			}
+		if index, ok := PortIndex(port.VendorShortName); ok {
+			ethernet.Index = &index
+		} else {
+			log.Debug().Msgf("no port index derivable from %q for interface %s of %s", port.VendorShortName, deviceInterface.Name, hostname)
 		}
 	}
 

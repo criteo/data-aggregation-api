@@ -21,16 +21,13 @@ type NetworkInstanceInterfaces map[string]map[string]*openconfig.NetworkInstance
 // InterfacesToOpenconfig converts the precomputed CMDB interfaces of one device to OpenConfig.
 // OpenConfig path: /interfaces/interface/.
 //
-// withPortIndex additionally emits the front-panel port index, which only
-// AFK managed devices need.
-//
 // It also returns the interface to network instance (VRF) bindings: see networkInstanceOf.
-func InterfacesToOpenconfig(hostname string, ifaces []*cmdbif.Interface, withPortIndex bool) (map[string]*openconfig.Interface, NetworkInstanceInterfaces, error) {
+func InterfacesToOpenconfig(hostname string, ifaces []*cmdbif.Interface) (map[string]*openconfig.Interface, NetworkInstanceInterfaces, error) {
 	interfaces := make(map[string]*openconfig.Interface, len(ifaces))
 	bindings := make(NetworkInstanceInterfaces)
 
 	for _, iface := range ifaces {
-		converted, err := DeviceInterfaceToOpenconfig(hostname, iface, withPortIndex)
+		converted, err := DeviceInterfaceToOpenconfig(hostname, iface)
 		if err != nil {
 			return nil, nil, err
 		}

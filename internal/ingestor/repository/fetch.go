@@ -146,6 +146,19 @@ func FetchAssets(reportCh chan report.Message) (*Assets, error) {
 	})
 
 	wg.Go(func() {
+		if v, err := cmdb.GetDNS(); err != nil {
+			reportCh <- report.Message{
+				Type:     report.IngestorMessage,
+				Severity: report.Warning,
+				Text:     err.Error(),
+			}
+			fetchFailure <- report.Warning
+		} else {
+			repo.CmdbDNS = v
+		}
+	})
+
+	wg.Go(func() {
 		if v, err := cmdb.GetSyslog(); err != nil {
 			reportCh <- report.Message{
 				Type:     report.IngestorMessage,
