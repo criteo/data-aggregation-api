@@ -38,6 +38,9 @@ type PortLayout struct {
 	VendorLongName  string `json:"vendor_long_name"  validate:"omitempty"`
 	// Lanes are the ASIC lanes of the port in hardware order, empty when not documented.
 	Lanes []uint16 `json:"lanes" validate:"omitempty"`
+	// Index is the front-panel port index in the NOS, shared by the breakout
+	// ports of a parent port, nil when not documented.
+	Index *uint16 `json:"index" validate:"omitempty"`
 }
 
 // Key returns the layout the port belongs to.

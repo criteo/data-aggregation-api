@@ -2,8 +2,6 @@ package interfaces
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 
 	cmdbif "github.com/criteo/data-aggregation-api/internal/model/cmdb/interfaces"
@@ -64,21 +62,6 @@ func interfaceTypeFromName(name string) openconfig.E_IETFInterfaces_InterfaceTyp
 	default:
 		return openconfig.IETFInterfaces_InterfaceType_UNSET
 	}
-}
-
-// portNumber extracts the first integer of a port short name (etp1, etp3a).
-var portNumber = regexp.MustCompile(`[0-9]+`)
-
-// PortIndex derives the front-panel port index from the port short name of
-// the port layout: the first integer of the name, counted from zero (etp1 is
-// index 0, etp3a is index 2). It returns false when the name carries no
-// usable number.
-func PortIndex(shortName string) (uint16, bool) {
-	number, err := strconv.ParseUint(portNumber.FindString(shortName), 10, 16)
-	if err != nil || number == 0 {
-		return 0, false
-	}
-	return uint16(number - 1), true
 }
 
 // interfaceType returns the OpenConfig type of a device interface, UNSET when
@@ -197,10 +180,11 @@ func ethernetToOpenconfig(hostname string, deviceInterface *cmdbif.DeviceInterfa
 		if lanes := port.LanesString(); lanes != "" {
 			ethernet.Lanes = &lanes
 		}
-		if index, ok := PortIndex(port.VendorShortName); ok {
+		if port.Index != nil {
+			index := *port.Index
 			ethernet.Index = &index
 		} else {
-			log.Debug().Msgf("no port index derivable from %q for interface %s of %s", port.VendorShortName, deviceInterface.Name, hostname)
+			log.Debug().Msgf("no port index in the port layout of interface %s of %s", deviceInterface.Name, hostname)
 		}
 	}
 

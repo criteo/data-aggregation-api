@@ -447,6 +447,11 @@ func newPortLayout(logicalName, vendorName, vendorShortName string, lanes ...uin
 	return &port
 }
 
+func withIndex(port *cmdbif.PortLayout, index uint16) *cmdbif.PortLayout {
+	port.Index = &index
+	return port
+}
+
 // TestInterfacesToOpenconfigPortLayout ensures front-panel ports are renamed
 // to their vendor name and carry the alias and lanes of the port layout, and
 // that logical interfaces and network instance bindings follow the new name.
@@ -470,10 +475,10 @@ func TestInterfacesToOpenconfigPortLayout(t *testing.T) {
 	mgmt := newDeviceInterface("eth0", true) // management port, not a front-panel port, not in the layout
 
 	portLayout := cmdbif.PortLayoutTable{
-		"to_spine_01": newPortLayout("to_spine_01", "Ethernet0", "etp1", 0, 1, 2, 3),
-		"to_spine_02": newPortLayout("to_spine_02", "Ethernet4", "etp2"),
-		"to_leaf_01":  newPortLayout("to_leaf_01", "Ethernet8", "etp3", 8, 9, 10, 11), // no device interface
-		"to_leaf_02":  newPortLayout("to_leaf_02", "Ethernet10", "etp3b", 10, 11),
+		"to_spine_01": withIndex(newPortLayout("to_spine_01", "Ethernet0", "etp0", 0, 1, 2, 3), 0),
+		"to_spine_02": newPortLayout("to_spine_02", "Ethernet4", "etp1"),                     // no index
+		"to_leaf_01":  withIndex(newPortLayout("to_leaf_01", "Ethernet8", "etp2a", 8, 9), 2), // no device interface
+		"to_leaf_02":  withIndex(newPortLayout("to_leaf_02", "Ethernet10", "etp2b", 10, 11), 2),
 	}
 
 	got, gotBindings, err := toOpenconfig(t,
@@ -493,7 +498,7 @@ func TestInterfacesToOpenconfigPortLayout(t *testing.T) {
 			Type:                 openconfig.IETFInterfaces_InterfaceType_ethernetCsmacd,
 			UseIpv6LinkLocalOnly: ygot.Bool(true),
 			Ethernet: &openconfig.Interface_Ethernet{
-				Alias:   ygot.String("etp1"),
+				Alias:   ygot.String("etp0"),
 				Lanes:   ygot.String("0,1,2,3"),
 				Index:   ygot.Uint16(0),
 				FecMode: openconfig.IfEthernet_INTERFACE_FEC_FEC_AUTO,
@@ -516,8 +521,7 @@ func TestInterfacesToOpenconfigPortLayout(t *testing.T) {
 			Type:                 openconfig.IETFInterfaces_InterfaceType_ethernetCsmacd,
 			UseIpv6LinkLocalOnly: ygot.Bool(false),
 			Ethernet: &openconfig.Interface_Ethernet{
-				Alias: ygot.String("etp2"),
-				Index: ygot.Uint16(1),
+				Alias: ygot.String("etp1"), // no index in the port layout, none emitted
 			},
 			Subinterface: map[uint32]*openconfig.Interface_Subinterface{
 				0: {
@@ -531,7 +535,7 @@ func TestInterfacesToOpenconfigPortLayout(t *testing.T) {
 			Enabled: ygot.Bool(true),
 			Type:    openconfig.IETFInterfaces_InterfaceType_ethernetCsmacd,
 			Ethernet: &openconfig.Interface_Ethernet{
-				Alias: ygot.String("etp3b"),
+				Alias: ygot.String("etp2b"),
 				Lanes: ygot.String("10,11"),
 				Index: ygot.Uint16(2), // breakout ports share the index of their parent port
 			},
@@ -615,31 +619,6 @@ func TestInterfacesToOpenconfigNeighbors(t *testing.T) {
 		if !strings.Contains(json, leaf) {
 			t.Errorf("missing %s in %s", leaf, json)
 		}
-	}
-}
-
-func TestPortIndex(t *testing.T) {
-	tests := []struct {
-		shortName string
-		want      uint16
-		ok        bool
-	}{
-		{"etp1", 0, true},
-		{"etp3a", 2, true},
-		{"etp32", 31, true},
-		{"etp0", 0, false},    // ports are numbered from one
-		{"eth0", 0, false},    // management port
-		{"console", 0, false}, // no number
-		{"", 0, false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.shortName, func(t *testing.T) {
-			got, ok := ifconvertors.PortIndex(test.shortName)
-			if ok != test.ok || got != test.want {
-				t.Errorf("PortIndex(%q) = %d, %t; want %d, %t", test.shortName, got, ok, test.want, test.ok)
-			}
-		})
 	}
 }
 

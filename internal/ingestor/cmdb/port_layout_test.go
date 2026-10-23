@@ -34,7 +34,8 @@ const portLayoutsJSON = `
         "vendor_name": "Ethernet0",
         "vendor_short_name": "etp1",
         "vendor_long_name": "Ethernet0",
-        "lanes": [0, 1, 2, 3]
+        "lanes": [0, 1, 2, 3],
+        "index": 0
     },
     {
         "id": 2,
@@ -46,7 +47,8 @@ const portLayoutsJSON = `
         "vendor_name": "Ethernet4",
         "vendor_short_name": "etp2",
         "vendor_long_name": "Ethernet4",
-        "lanes": []
+        "lanes": [],
+        "index": null
     },
     {
         "id": 4,
@@ -104,6 +106,9 @@ func TestPrecomputePortLayouts(t *testing.T) {
 		if lanes := port.LanesString(); lanes != "0,1,2,3" {
 			t.Errorf("unexpected lanes for %s: %q", name, lanes)
 		}
+		if port.Index == nil || *port.Index != 0 {
+			t.Errorf("unexpected index for %s: %v", name, port.Index)
+		}
 	}
 
 	// a port named after itself is reachable once
@@ -116,6 +121,9 @@ func TestPrecomputePortLayouts(t *testing.T) {
 
 	if lanes := tor["to_spine_02"].LanesString(); lanes != "" {
 		t.Errorf("expected no lanes for to_spine_02, got %q", lanes)
+	}
+	if index := tor["to_spine_02"].Index; index != nil {
+		t.Errorf("expected no index for to_spine_02, got %d", *index)
 	}
 
 	// the same hardware in another role is another layout
