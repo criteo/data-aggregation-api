@@ -622,6 +622,52 @@ func TestInterfacesToOpenconfigNeighbors(t *testing.T) {
 	}
 }
 
+// TestInterfacesToOpenconfigNeighborDescription ensures the neighbor port
+// ending a description is named the way the remote device names it, and that
+// other descriptions are kept as is.
+func TestInterfacesToOpenconfigNeighborDescription(t *testing.T) {
+	uplink := newDeviceInterface("Ethernet0", true)
+	uplink.Description = "spine01-01:uplink_12"
+	uplinkUnit0 := newLogicalInterface("Ethernet0", 0, "")
+	uplinkUnit0.Description = "spine01-01:uplink_12"
+	mgmt := newDeviceInterface("eth0", true)
+	mgmt.Description = "oob01-01:to_tor01-01"
+	custom := newDeviceInterface("Ethernet4", true)
+	custom.Description = "to spine01-01"
+	shortened := newDeviceInterface("Ethernet12", true)
+	shortened.Description = "sp01 uplink_14"
+	unlinked := newDeviceInterface("Ethernet8", true)
+	unlinked.Description = "spine01-01:uplink_13"
+
+	neighbors := cmdbif.NeighborTable{
+		"Ethernet0": {Device: "spine01-01", Port: "Ethernet184", CmdbPort: "uplink_12"},
+		// remote device without port layout
+		"eth0":       {Device: "oob01-01", Port: "to_tor01-01", CmdbPort: "to_tor01-01"},
+		"Ethernet4":  {Device: "spine01-01", Port: "Ethernet192", CmdbPort: "uplink_13"},
+		"Ethernet12": {Device: "spine01-01", Port: "Ethernet200", CmdbPort: "uplink_14"},
+	}
+
+	got, _, err := toOpenconfig(t, []*cmdbif.DeviceInterface{uplink, mgmt, custom, unlinked, shortened}, []*cmdbif.LogicalInterface{uplinkUnit0}, nil, neighbors)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	for name, want := range map[string]string{
+		"Ethernet0":  "spine01-01:Ethernet184",
+		"eth0":       "oob01-01:to_tor01-01",
+		"Ethernet4":  "to spine01-01",
+		"Ethernet8":  "spine01-01:uplink_13",
+		"Ethernet12": "sp01 Ethernet200",
+	} {
+		if iface := got[name]; iface == nil || iface.Description == nil || *iface.Description != want {
+			t.Errorf("unexpected description on %s: want %q, got %+v", name, want, iface)
+		}
+	}
+	if unit0 := got["Ethernet0"].Subinterface[0]; unit0 == nil || unit0.Description == nil || *unit0.Description != "spine01-01:Ethernet184" {
+		t.Errorf("unexpected description on Ethernet0.0: %+v", unit0)
+	}
+}
+
 func TestInterfacesToOpenconfigPortLayoutConflict(t *testing.T) {
 	portLayout := cmdbif.PortLayoutTable{
 		"to_spine_01": newPortLayout("to_spine_01", "Ethernet0", "etp1", 0, 1, 2, 3),
