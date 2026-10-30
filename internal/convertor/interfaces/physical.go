@@ -142,7 +142,8 @@ func DeviceInterfaceToOpenconfig(hostname string, iface *cmdbif.Interface) (*ope
 	}
 
 	if deviceInterface.Description != "" {
-		converted.Description = &deviceInterface.Description
+		description := iface.Neighbor.ResolveDescription(deviceInterface.Description)
+		converted.Description = &description
 	}
 
 	// The management interface is identified by its NOS name, after the port

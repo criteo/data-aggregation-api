@@ -63,15 +63,15 @@ func TestPrecomputeNeighbors(t *testing.T) {
 	want := map[string]interfaces.NeighborTable{
 		"tor01-01": {
 			// named after the port layout of the remote device
-			"to_spine_01": {Device: "spine01-01", Port: "Ethernet0"},
+			"to_spine_01": {Device: "spine01-01", Port: "Ethernet0", CmdbPort: "to_leaf_01"},
 			// named after the CMDB: the remote device has no port layout
-			"eth0": {Device: "oob01-01", Port: "to_tor01-01"},
+			"eth0": {Device: "oob01-01", Port: "to_tor01-01", CmdbPort: "to_tor01-01"},
 		},
 		"spine01-01": {
-			"to_leaf_01": {Device: "tor01-01", Port: "to_spine_01"},
+			"to_leaf_01": {Device: "tor01-01", Port: "to_spine_01", CmdbPort: "to_spine_01"},
 		},
 		"oob01-01": {
-			"to_tor01-01": {Device: "tor01-01", Port: "eth0"},
+			"to_tor01-01": {Device: "tor01-01", Port: "eth0", CmdbPort: "eth0"},
 		},
 	}
 

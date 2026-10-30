@@ -54,8 +54,9 @@ func PrecomputeNeighbors(links []*interfaces.Link, portLayouts map[string]interf
 		}
 
 		table[local.Name] = &interfaces.Neighbor{
-			Device: remote.Device.Name,
-			Port:   portLayouts[remote.Device.Name].PortName(remote.Name),
+			Device:   remote.Device.Name,
+			Port:     portLayouts[remote.Device.Name].PortName(remote.Name),
+			CmdbPort: remote.Name,
 		}
 	}
 

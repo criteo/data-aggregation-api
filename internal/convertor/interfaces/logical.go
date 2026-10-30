@@ -19,7 +19,7 @@ func subinterfacesToOpenconfig(hostname string, iface *cmdbif.Interface, loopbac
 
 	subinterfaces := make(map[uint32]*openconfig.Interface_Subinterface, len(iface.LogicalInterfaces))
 	for _, logicalInterface := range iface.LogicalInterfaces {
-		subinterface, err := SubinterfaceToOpenconfig(hostname, logicalInterface, loopback, iface.ManagementRoutes[*logicalInterface.Index])
+		subinterface, err := SubinterfaceToOpenconfig(hostname, logicalInterface, loopback, iface.ManagementRoutes[*logicalInterface.Index], iface.Neighbor)
 		if err != nil {
 			return nil, err
 		}
@@ -33,8 +33,12 @@ func subinterfacesToOpenconfig(hostname string, iface *cmdbif.Interface, loopbac
 //
 // loopback tells whether the parent interface is a loopback, managementRoutes
 // are the management routes attached to the logical interface: the forced
-// ones are emitted on its IPv4 container.
-func SubinterfaceToOpenconfig(hostname string, logicalInterface *cmdbif.LogicalInterface, loopback bool, managementRoutes []*cmdbif.ManagementRoute) (*openconfig.Interface_Subinterface, error) {
+// ones are emitted on its IPv4 container. neighbor is the neighbor of the
+// parent interface, nil if none: it resolves the description (see
+// Neighbor.ResolveDescription).
+func SubinterfaceToOpenconfig(hostname string, logicalInterface *cmdbif.LogicalInterface, loopback bool, managementRoutes []*cmdbif.ManagementRoute,
+	neighbor *cmdbif.Neighbor,
+) (*openconfig.Interface_Subinterface, error) {
 	name := logicalInterface.Name()
 
 	// The MTU of the logical unit 0 is the MTU of the interface, see interfaceMtu.
@@ -56,7 +60,8 @@ func SubinterfaceToOpenconfig(hostname string, logicalInterface *cmdbif.LogicalI
 	}
 
 	if logicalInterface.Description != "" {
-		subinterface.Description = &logicalInterface.Description
+		description := neighbor.ResolveDescription(logicalInterface.Description)
+		subinterface.Description = &description
 	}
 
 	if logicalInterface.IPv4Address != nil {
